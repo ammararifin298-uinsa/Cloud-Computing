@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: warehouse-db
+    environment:
+      POSTGRES_USER: logistik
+      POSTGRES_PASSWORD: logistik
+      POSTGRES_DB: logistik
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U logistik"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: ./api
+    container_name: logistik-api
+    environment:
+      DATABASE_URL: postgresql://logistik:logistik@db:5432/logistik
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  backup:
+    image: postgres:16-alpine
+    container_name: logistik-backup
+    environment:
+      PGPASSWORD: logistik
+      BACKUP_INTERVAL: 900
+    volumes:
+      - ./backup/backup.sh:/backup.sh:ro
+      - ./backups:/backups
+    entrypoint: ["sh", "/backup.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
