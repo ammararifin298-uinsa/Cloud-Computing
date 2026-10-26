@@ -2,6 +2,7 @@ services:
   db:
     image: postgres:16-alpine
     container_name: warehouse-db
+    restart: unless-stopped
     environment:
       POSTGRES_USER: logistik
       POSTGRES_PASSWORD: logistik
@@ -17,6 +18,7 @@ services:
   api:
     build: ./api
     container_name: logistik-api
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://logistik:logistik@db:5432/logistik
       BACKUP_DIR: /backups
@@ -28,10 +30,17 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   backup:
     image: postgres:16-alpine
     container_name: logistik-backup
+    restart: unless-stopped
     environment:
       PGPASSWORD: logistik
       BACKUP_INTERVAL: 900
@@ -42,6 +51,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "find /backups -name 'logistik_*.dump' -mmin -30 | grep -q ."]
+      interval: 60s
+      timeout: 5s
+      retries: 2
+      start_period: 90s
 
 volumes:
   pgdata:
