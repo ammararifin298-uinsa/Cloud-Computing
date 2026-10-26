@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lacak Pengiriman | Dashboard Logistik dan Rantai Pasok</title>
+  <meta name="description" content="Lacak riwayat perjalanan paket berdasarkan nomor resi.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+
+<body>
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <main>
+    <header class="page-head">
+      <div>
+        <div class="crumb">Tracking</div>
+        <h1>Lacak Pengiriman</h1>
+        <p class="page-sub">Masukkan nomor resi untuk melihat posisi terkini dan riwayat perjalanan paket.</p>
+      </div>
+    </header>
+
+    <div class="alert" id="dbAlert">Database tidak dapat dijangkau. Pelacakan sementara tidak tersedia.</div>
+
+    <section class="card">
+      <div class="card-b">
+        <form class="toolbar" id="form">
+          <input id="code" list="codes" placeholder="Contoh: LOG-261026-AB12" required>
+          <datalist id="codes"></datalist>
+          <button class="btn" type="submit">Lacak</button>
+        </form>
+      </div>
+    </section>
+
+    <div id="result" style="margin-top:18px"></div>
+  </main>
+
+  <script src="/static/app.js"></script>
+  <script>
+    async function track(code) {
+      const out = $("result");
+      out.innerHTML = `<div class="card"><div class="empty">Memuat riwayat ${esc(code)}</div></div>`;
+      history.replaceState(null, "", `/lacak?code=${encodeURIComponent(code)}`);
+
+      let rows;
+      try {
+        rows = await api(`/api/shipments/${encodeURIComponent(code)}/events`);
+      } catch (e) {
+        out.innerHTML = `<div class="card"><div class="empty">${e.status === 404 ? `Nomor resi <b>${esc(code)}</b> tidak ditemukan.` : `Gagal memuat data: ${esc(e.message)}`
+          }</div></div>`;
+        return;
+      }
+
+      const last = rows[0];
+      const first = rows[rows.length - 1];
+      const idx = STATUS_ORDER.indexOf(last.status);
+      const c = encodeURIComponent(code);
+
+      out.innerHTML = `
+    <div class="card">
+      <div class="card-h">
+        <h2>Resi <span class="code" style="font-size:14px">${esc(code)}</span></h2>
+        <div>
+          <a class="btn sm ghost" href="/checkpoint?code=${c}">Update Checkpoint</a>
+        </div>
+      </div>
+      <div class="card-b">
+        <div class="stepper">
+          ${STATUS_ORDER.map((k, i) => `
+            <div class="step ${i <= idx ? "done" : ""} ${i === idx ? "current" : ""}" style="--c:${STATUS[last.status].color}">
+              <div class="track"></div>
+              <div class="lbl">${STATUS[k].label}</div>
+            </div>`).join("")}
+        </div>
+      </div>
+      <div class="summary">
+        <div><small>Status terkini</small>${badge(last.status)}</div>
+        <div><small>Posisi terakhir</small><b>${esc(last.location)}</b></div>
+        <div><small>Pertama tercatat</small><b>${fmtDate(first.recorded_at)}</b></div>
+        <div><small>Jumlah checkpoint</small><b class="num">${rows.length}</b></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">
+        <h2>Riwayat Perjalanan</h2>
+        <span class="hint">Terbaru di atas</span>
+      </div>
+      <div class="card-b">
+        <ul class="timeline">
+          ${rows.map((r) => `
+            <li>
+              <span class="pin" style="--c:${STATUS[r.status]?.color || "#64748b"}"></span>
+              <div class="row">${badge(r.status)}<span class="loc">${esc(r.location)}</span></div>
+              <div class="time">${fmtDate(r.recorded_at)} &middot; ${fmtAgo(r.recorded_at)}</div>
+            </li>`).join("")}
+        </ul>
+      </div>
+    </div>`;
+    }
+
+    $("form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const code = $("code").value.trim();
+      if (code) track(code);
+    });
+
+    (async () => {
+      await checkHealth();
+      setInterval(checkHealth, 10000);
+      try {
+        const list = await api("/api/shipments");
+        $("codes").innerHTML = list.map((s) => `<option value="${esc(s.code)}">`).join("");
+      } catch { /* datalist opsional */ }
+      const initial = qs("code");
+      if (initial) { $("code").value = initial; track(initial); }
+      else $("result").innerHTML = `<div class="card"><div class="empty">Belum ada resi yang dilacak.</div></div>`;
+    })();
+  </script>
+</body>
+
+</html>

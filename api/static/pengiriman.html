@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Master Pengiriman | Dashboard Logistik dan Rantai Pasok</title>
+<meta name="description" content="Kelola data master pengiriman: cari, filter, update, dan hapus.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<aside class="sidebar" id="sidebar"></aside>
+
+<main>
+  <header class="page-head">
+    <div>
+      <div class="crumb">Data</div>
+      <h1>Master Pengiriman</h1>
+      <p class="page-sub">Seluruh paket terdaftar beserta status dan posisi terakhirnya.</p>
+    </div>
+    <div class="head-actions">
+      <span class="updated" id="updated">-</span>
+      <a class="btn" href="/checkpoint">Tambah Pengiriman</a>
+    </div>
+  </header>
+
+  <div class="alert" id="dbAlert">Database tidak dapat dijangkau. Data yang tampil mungkin tidak terbaru.</div>
+
+  <section class="card">
+    <div class="card-h">
+      <div class="toolbar" style="flex:1">
+        <input id="search" type="search" placeholder="Cari kode resi atau lokasi">
+        <select id="filter">
+          <option value="">Semua status</option>
+        </select>
+      </div>
+      <span class="hint" id="count">0 pengiriman</span>
+    </div>
+    <div class="card-b flush table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Kode Resi</th>
+            <th>Status</th>
+            <th>Lokasi Terakhir</th>
+            <th>Jumlah Event</th>
+            <th>Diperbarui</th>
+            <th class="right">Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="rows"><tr><td colspan="6" class="empty">Memuat data</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script src="/static/app.js"></script>
+<script>
+let shipments = [];
+
+$("filter").innerHTML += STATUS_ORDER.map((k) => `<option value="${k}">${STATUS[k].label}</option>`).join("");
+
+function render() {
+  const q = $("search").value.trim().toLowerCase();
+  const f = $("filter").value;
+  const list = shipments.filter((s) =>
+    (!f || s.current_status === f) &&
+    (!q || s.code.toLowerCase().includes(q) || s.current_location.toLowerCase().includes(q))
+  );
+
+  $("count").textContent = `${list.length} dari ${shipments.length} pengiriman`;
+
+  if (!list.length) {
+    $("rows").innerHTML = `<tr><td colspan="6" class="empty">${shipments.length ? "Tidak ada data yang cocok dengan filter." : "Belum ada pengiriman terdaftar."}</td></tr>`;
+    return;
+  }
+
+  $("rows").innerHTML = list.map((s) => {
+    const c = encodeURIComponent(s.code);
+    return `
+      <tr>
+        <td><a class="code" href="/lacak?code=${c}">${esc(s.code)}</a></td>
+        <td>${badge(s.current_status)}</td>
+        <td>${esc(s.current_location)}</td>
+        <td class="num">${s.total_events}</td>
+        <td class="muted" title="${esc(fmtDate(s.updated_at))}">${fmtAgo(s.updated_at)}</td>
+        <td class="actions">
+          <a class="btn sm ghost" href="/lacak?code=${c}">Lacak</a>
+          <a class="btn sm ghost" href="/checkpoint?code=${c}">Update</a>
+          <button class="btn sm danger-ghost" type="button" data-del="${esc(s.code)}">Hapus</button>
+        </td>
+      </tr>`;
+  }).join("");
+}
+
+async function load() {
+  shipments = await api("/api/shipments");
+  render();
+}
+
+$("rows").addEventListener("click", async (e) => {
+  const code = e.target.dataset?.del;
+  if (!code) return;
+  const s = shipments.find((x) => x.code === code);
+  const ok = await confirmDialog({
+    title: "Hapus pengiriman?",
+    message: `Pengiriman <b>${esc(code)}</b> beserta <b>${s?.total_events ?? 0} riwayat event</b> akan dihapus permanen dari database.`,
+    confirmText: "Hapus",
+    danger: true,
+  });
+  if (!ok) return;
+  try {
+    const res = await api(`/api/shipments/${encodeURIComponent(code)}`, { method: "DELETE" });
+    toast(`${code} dihapus (${res.events_deleted} event).`);
+    await load();
+  } catch (err) {
+    toast(`Gagal menghapus: ${err.message}`, "err");
+  }
+});
+
+$("search").addEventListener("input", render);
+$("filter").addEventListener("change", render);
+
+autoRefresh(load, 15000);
+</script>
+</body>
+</html>

@@ -3,66 +3,162 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dashboard Logistik</title>
-<style>
-  body{font-family:system-ui,sans-serif;max-width:900px;margin:24px auto;padding:0 16px;color:#1f2937}
-  h1{font-size:1.4rem}
-  .cards{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
-  .card{flex:1;min-width:140px;padding:12px;border:1px solid #e5e7eb;border-radius:8px}
-  .card b{display:block;font-size:1.5rem}
-  form{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
-  input,select,button{padding:8px;border:1px solid #d1d5db;border-radius:6px}
-  button{background:#2563eb;color:#fff;border:0;cursor:pointer}
-  table{width:100%;border-collapse:collapse}
-  th,td{text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;font-size:.9rem}
-  #msg{font-size:.9rem;min-height:1.2em}
-</style>
+<title>Ringkasan | Dashboard Logistik dan Rantai Pasok</title>
+<meta name="description" content="Ringkasan status pengiriman dan aktivitas tracking logistik secara real-time.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
-<h1>Dashboard Logistik &amp; Rantai Pasok</h1>
-<div class="cards" id="cards"></div>
+<aside class="sidebar" id="sidebar"></aside>
 
-<form id="f">
-  <input name="shipment_code" placeholder="Kode barang (mis. SHP-001)" required>
-  <select name="status">
-    <option>DITERIMA</option><option>DISIMPAN</option>
-    <option>DALAM_PERJALANAN</option><option>DIKIRIM</option><option>SELESAI</option>
-  </select>
-  <input name="location" placeholder="Lokasi (mis. Gudang A)" required>
-  <button>Kirim Event</button>
-</form>
-<div id="msg"></div>
+<main>
+  <header class="page-head">
+    <div>
+      <div class="crumb">Dashboard</div>
+      <h1>Ringkasan Operasional</h1>
+      <p class="page-sub">Kondisi pengiriman dan aktivitas tracking terkini.</p>
+    </div>
+    <div class="head-actions">
+      <span class="updated" id="updated">-</span>
+      <button class="btn ghost" id="refreshBtn" type="button">Segarkan</button>
+    </div>
+  </header>
 
-<h3>10 Event Terbaru</h3>
-<table>
-  <thead><tr><th>Kode</th><th>Status</th><th>Lokasi</th><th>Waktu</th></tr></thead>
-  <tbody id="rows"></tbody>
-</table>
+  <div class="alert" id="dbAlert">Database tidak dapat dijangkau. Data yang tampil mungkin tidak terbaru.</div>
 
+  <section class="kpis">
+    <div class="kpi" style="--accent: var(--brand)">
+      <div class="label">Total Pengiriman</div>
+      <div class="value num" id="kTotal">0</div>
+      <div class="foot">Seluruh paket terdaftar</div>
+    </div>
+    <div class="kpi" style="--accent: var(--c-perjalanan)">
+      <div class="label">Sedang Diproses</div>
+      <div class="value num" id="kActive">0</div>
+      <div class="foot">Belum berstatus selesai</div>
+    </div>
+    <div class="kpi" style="--accent: var(--c-selesai)">
+      <div class="label">Selesai</div>
+      <div class="value num" id="kDone">0</div>
+      <div class="foot" id="kDoneRate">0% dari total</div>
+    </div>
+    <div class="kpi" style="--accent: var(--c-disimpan)">
+      <div class="label">Event 1 Jam Terakhir</div>
+      <div class="value num" id="kHour">0</div>
+      <div class="foot"><span id="kEvents">0</span> event tercatat total</div>
+    </div>
+  </section>
+
+  <section class="grid-2">
+    <div class="card">
+      <div class="card-h">
+        <h2>Distribusi Status Pengiriman</h2>
+        <span class="hint">Berdasarkan status terakhir</span>
+      </div>
+      <div class="card-b">
+        <div class="donut-wrap">
+          <div class="donut">
+            <svg viewBox="0 0 42 42" id="donut"></svg>
+            <div class="center"><b class="num" id="donutTotal">0</b><small>pengiriman</small></div>
+          </div>
+          <div class="legend" id="legend"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">
+        <h2>Akses Cepat</h2>
+      </div>
+      <div class="card-b">
+        <div class="info-list">
+          <div><span>Catat paket baru atau update lokasi</span><a class="btn sm" href="/checkpoint">Catat Checkpoint</a></div>
+          <div><span>Kelola dan hapus data pengiriman</span><a class="btn sm ghost" href="/pengiriman">Master Pengiriman</a></div>
+          <div><span>Lihat riwayat perjalanan paket</span><a class="btn sm ghost" href="/lacak">Lacak Pengiriman</a></div>
+          <div><span>Status backup dan prosedur DR</span><a class="btn sm ghost" href="/backup">Backup dan DR</a></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:18px">
+    <div class="card-h">
+      <h2>Aktivitas Terbaru</h2>
+      <span class="hint">10 event tracking terakhir</span>
+    </div>
+    <div class="card-b flush table-wrap">
+      <table>
+        <thead>
+          <tr><th>Kode Resi</th><th>Status</th><th>Lokasi</th><th>Waktu</th></tr>
+        </thead>
+        <tbody id="latest"><tr><td colspan="4" class="empty">Memuat data</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script src="/static/app.js"></script>
 <script>
-async function load(){
-  try{
-    const d = await (await fetch('/api/dashboard')).json();
-    document.getElementById('cards').innerHTML =
-      `<div class="card">Total Event<b>${d.total_events}</b></div>
-       <div class="card">Event 1 Jam Terakhir<b>${d.events_last_hour}</b></div>` +
-      d.by_status.map(s=>`<div class="card">${s.status}<b>${s.total}</b></div>`).join('');
-    document.getElementById('rows').innerHTML = d.latest.map(e=>
-      `<tr><td>${e.shipment_code}</td><td>${e.status}</td><td>${e.location}</td>
-       <td>${new Date(e.recorded_at).toLocaleString('id-ID')}</td></tr>`).join('');
-    document.getElementById('msg').textContent = '';
-  }catch(err){
-    document.getElementById('msg').textContent = 'Database tidak dapat dijangkau';
+function renderDonut(map, total) {
+  const r = 15.915;
+  let offset = 0;
+  let html = `<circle cx="21" cy="21" r="${r}" fill="none" stroke="#eef2f7" stroke-width="5"/>`;
+  if (total) {
+    for (const k of STATUS_ORDER) {
+      const pct = (map[k] || 0) / total * 100;
+      if (!pct) continue;
+      html += `<circle cx="21" cy="21" r="${r}" fill="none" stroke="${STATUS[k].color}" stroke-width="5"
+                 stroke-dasharray="${pct} ${100 - pct}" stroke-dashoffset="${-offset}"/>`;
+      offset += pct;
+    }
   }
+  $("donut").innerHTML = html;
 }
-document.getElementById('f').addEventListener('submit', async ev=>{
-  ev.preventDefault();
-  const body = Object.fromEntries(new FormData(ev.target));
-  const r = await fetch('/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  document.getElementById('msg').textContent = r.ok ? 'Event tersimpan' : 'Gagal menyimpan (' + r.status + ')';
-  if(r.ok) load();
-});
-load(); setInterval(load, 5000);
+
+async function load() {
+  const d = await api("/api/dashboard");
+  const map = Object.fromEntries(d.by_status.map((x) => [x.status, Number(x.total)]));
+  const total = Object.values(map).reduce((a, b) => a + b, 0);
+  const done = map.SELESAI || 0;
+
+  $("kTotal").textContent = total;
+  $("kActive").textContent = total - done;
+  $("kDone").textContent = done;
+  $("kDoneRate").textContent = `${total ? Math.round(done / total * 100) : 0}% dari total`;
+  $("kHour").textContent = d.events_last_hour;
+  $("kEvents").textContent = d.total_events;
+  $("donutTotal").textContent = total;
+
+  renderDonut(map, total);
+
+  $("legend").innerHTML = STATUS_ORDER.map((k) => {
+    const n = map[k] || 0;
+    const p = total ? n / total * 100 : 0;
+    return `
+      <div class="lg-row">
+        <i style="background:${STATUS[k].color}"></i>
+        <span class="n">${STATUS[k].label}</span>
+        <span class="t num">${n}</span>
+        <span class="p num">${p.toFixed(0)}%</span>
+        <div class="bar"><div style="width:${p}%;background:${STATUS[k].color}"></div></div>
+      </div>`;
+  }).join("");
+
+  $("latest").innerHTML = d.latest.length
+    ? d.latest.map((e) => `
+        <tr>
+          <td><a class="code" href="/lacak?code=${encodeURIComponent(e.shipment_code)}">${esc(e.shipment_code)}</a></td>
+          <td>${badge(e.status)}</td>
+          <td>${esc(e.location)}</td>
+          <td class="muted">${fmtDate(e.recorded_at)}</td>
+        </tr>`).join("")
+    : `<tr><td colspan="4" class="empty">Belum ada aktivitas tracking.</td></tr>`;
+}
+
+const run = autoRefresh(load, 10000);
+$("refreshBtn").onclick = run;
 </script>
 </body>
 </html>

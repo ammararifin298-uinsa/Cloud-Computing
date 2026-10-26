@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catat Checkpoint | Dashboard Logistik dan Rantai Pasok</title>
+<meta name="description" content="Catat pengiriman baru atau perbarui posisi pengiriman yang sedang berjalan.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<aside class="sidebar" id="sidebar"></aside>
+
+<main>
+  <header class="page-head">
+    <div>
+      <div class="crumb">Operasional</div>
+      <h1>Catat Checkpoint</h1>
+      <p class="page-sub">Daftarkan paket baru atau perbarui status dan posisi paket yang sedang berjalan.</p>
+    </div>
+  </header>
+
+  <div class="alert" id="dbAlert">Database tidak dapat dijangkau. Input tracking sementara tidak dapat disimpan.</div>
+
+  <section class="grid-2">
+    <div class="card">
+      <div class="card-h">
+        <h2>Form Checkpoint</h2>
+        <span class="hint">Setiap simpan menambah 1 event tracking</span>
+      </div>
+      <div class="card-b">
+        <div class="segmented" role="tablist">
+          <button type="button" id="modeNew" class="active">Pengiriman Baru</button>
+          <button type="button" id="modeUpdate">Update Pengiriman</button>
+        </div>
+
+        <form id="form" autocomplete="off" novalidate>
+          <div class="field" id="newWrap">
+            <label for="resi">Nomor Resi</label>
+            <div class="input-row">
+              <input id="resi" readonly>
+              <button type="button" class="btn ghost" id="regen">Buat Ulang</button>
+            </div>
+            <div class="help">Dibuat otomatis oleh sistem dengan format LOG-TTBBHH-XXXX dan dijamin unik.</div>
+          </div>
+
+          <div class="field" id="updateWrap" hidden>
+            <label for="existing">Pilih Pengiriman</label>
+            <select id="existing"></select>
+            <div class="help" id="existingInfo">Pilih paket yang sudah terdaftar.</div>
+          </div>
+
+          <div class="field">
+            <label for="status">Status</label>
+            <select id="status"></select>
+          </div>
+
+          <div class="field">
+            <label for="location">Lokasi Checkpoint</label>
+            <select id="location"></select>
+            <input id="locationOther" placeholder="Tulis nama fasilitas atau alamat" maxlength="100" style="margin-top:8px" hidden>
+          </div>
+
+          <button class="btn block" type="submit" id="submitBtn">Simpan Checkpoint</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="stack">
+      <div class="card">
+        <div class="card-h"><h2>Alur Status Pengiriman</h2></div>
+        <div class="card-b">
+          <ol class="flow" id="flow"></ol>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h">
+          <h2>Dicatat Sesi Ini</h2>
+          <span class="hint" id="sessionCount">0 event</span>
+        </div>
+        <div class="card-b flush table-wrap">
+          <table>
+            <thead><tr><th>Kode Resi</th><th>Status</th><th>Waktu</th></tr></thead>
+            <tbody id="session"><tr><td colspan="3" class="empty">Belum ada checkpoint yang disimpan.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="/static/app.js"></script>
+<script>
+let mode = "new";
+let shipments = [];
+const sessionLog = [];
+
+/* ---------- Isi pilihan statis ---------- */
+
+$("status").innerHTML = STATUS_ORDER
+  .map((k) => `<option value="${k}">${STATUS[k].label}: ${STATUS[k].desc}</option>`).join("");
+
+$("location").innerHTML = LOCATIONS
+  .map((g) => `<optgroup label="${esc(g.group)}">${g.items.map((i) => `<option>${esc(i)}</option>`).join("")}</optgroup>`)
+  .join("") + `<option value="__other">Lokasi lain</option>`;
+
+$("flow").innerHTML = STATUS_ORDER
+  .map((k) => `<li style="--c:${STATUS[k].color}"><b>${STATUS[k].label}</b><span>${STATUS[k].desc}</span></li>`).join("");
+
+/* ---------- Data pengiriman ---------- */
+
+async function loadShipments() {
+  shipments = await api("/api/shipments");
+  const sel = $("existing");
+  const prev = sel.value || qs("code");
+  sel.innerHTML = shipments.length
+    ? shipments.map((s) => `<option value="${esc(s.code)}">${esc(s.code)} (${STATUS[s.current_status]?.label || s.current_status})</option>`).join("")
+    : `<option value="">Belum ada pengiriman terdaftar</option>`;
+  if (prev && shipments.some((s) => s.code === prev)) sel.value = prev;
+  if (mode === "update") onSelectExisting();
+}
+
+function onSelectExisting() {
+  const s = shipments.find((x) => x.code === $("existing").value);
+  if (!s) { $("existingInfo").textContent = "Pilih paket yang sudah terdaftar."; return; }
+  $("existingInfo").textContent = `Posisi terakhir: ${s.current_location}, ${fmtAgo(s.updated_at)}.`;
+  // Sarankan status berikutnya sesuai alur
+  const idx = STATUS_ORDER.indexOf(s.current_status);
+  $("status").value = STATUS_ORDER[Math.min(idx + 1, STATUS_ORDER.length - 1)];
+}
+
+/* ---------- Mode form ---------- */
+
+function setMode(m) {
+  mode = m;
+  $("modeNew").classList.toggle("active", m === "new");
+  $("modeUpdate").classList.toggle("active", m === "update");
+  $("newWrap").hidden = m !== "new";
+  $("updateWrap").hidden = m !== "update";
+  if (m === "new") {
+    $("resi").value = generateResi(shipments.map((s) => s.code));
+    $("status").value = "DITERIMA";
+  } else {
+    onSelectExisting();
+  }
+}
+
+$("modeNew").onclick = () => setMode("new");
+$("modeUpdate").onclick = () => setMode("update");
+$("existing").onchange = onSelectExisting;
+$("regen").onclick = () => { $("resi").value = generateResi(shipments.map((s) => s.code)); };
+
+$("location").onchange = () => {
+  const other = $("location").value === "__other";
+  $("locationOther").hidden = !other;
+  if (other) $("locationOther").focus();
+};
+
+/* ---------- Submit ---------- */
+
+$("form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const code = mode === "new" ? $("resi").value : $("existing").value;
+  const location = $("location").value === "__other" ? $("locationOther").value.trim() : $("location").value;
+
+  if (!code) return toast("Pilih atau buat nomor resi terlebih dahulu.", "err");
+  if (location.length < 2) return toast("Lokasi checkpoint wajib diisi.", "err");
+
+  const btn = $("submitBtn");
+  btn.disabled = true;
+  try {
+    const status = $("status").value;
+    const res = await api("/api/events", {
+      method: "POST",
+      body: JSON.stringify({ shipment_code: code, status, location }),
+    });
+    sessionLog.unshift({ code, status, at: res.recorded_at });
+    renderSession();
+    toast(`Checkpoint ${code} tersimpan.`);
+    await loadShipments();
+    if (mode === "new") {
+      $("resi").value = generateResi(shipments.map((s) => s.code));
+    } else {
+      onSelectExisting();
+    }
+    $("locationOther").value = "";
+  } catch (e) {
+    toast(`Gagal menyimpan: ${e.message}`, "err");
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+function renderSession() {
+  $("sessionCount").textContent = `${sessionLog.length} event`;
+  $("session").innerHTML = sessionLog.slice(0, 8).map((r) => `
+    <tr>
+      <td><a class="code" href="/lacak?code=${encodeURIComponent(r.code)}">${esc(r.code)}</a></td>
+      <td>${badge(r.status)}</td>
+      <td class="muted">${new Date(r.at).toLocaleTimeString("id-ID")}</td>
+    </tr>`).join("");
+}
+
+/* ---------- Init ---------- */
+
+(async () => {
+  await checkHealth();
+  try { await loadShipments(); } catch (e) { console.error(e); }
+  setMode(qs("code") ? "update" : "new");
+  setInterval(checkHealth, 10000);
+})();
+</script>
+</body>
+</html>

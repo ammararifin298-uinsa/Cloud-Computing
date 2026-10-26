@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backup dan DR | Dashboard Logistik dan Rantai Pasok</title>
+<meta name="description" content="Status backup rutin database dan prosedur Disaster Recovery.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<aside class="sidebar" id="sidebar"></aside>
+
+<main>
+  <header class="page-head">
+    <div>
+      <div class="crumb">Infrastruktur</div>
+      <h1>Backup dan Disaster Recovery</h1>
+      <p class="page-sub">Pemantauan backup rutin log pergerakan barang dan prosedur pemulihan database.</p>
+    </div>
+    <div class="head-actions">
+      <span class="updated" id="updated">-</span>
+      <button class="btn ghost" id="refreshBtn" type="button">Segarkan</button>
+    </div>
+  </header>
+
+  <div class="alert" id="dbAlert">Database gudang utama tidak dapat dijangkau. Jalankan prosedur pemulihan di bawah.</div>
+
+  <section class="kpis">
+    <div class="kpi" style="--accent: var(--brand)">
+      <div class="label">Backup Terakhir</div>
+      <div class="value" id="kLast" style="font-size:22px">-</div>
+      <div class="foot" id="kLastAt">-</div>
+    </div>
+    <div class="kpi" id="kHealthCard" style="--accent: var(--c-selesai)">
+      <div class="label">Kesehatan Jadwal</div>
+      <div class="value" id="kHealth" style="font-size:22px">-</div>
+      <div class="foot" id="kHealthFoot">-</div>
+    </div>
+    <div class="kpi" style="--accent: var(--c-perjalanan)">
+      <div class="label">File Tersimpan</div>
+      <div class="value num" id="kCount">0</div>
+      <div class="foot" id="kSize">0 B total</div>
+    </div>
+    <div class="kpi" style="--accent: var(--c-disimpan)">
+      <div class="label">Jadwal dan Retensi</div>
+      <div class="value" id="kInterval" style="font-size:22px">-</div>
+      <div class="foot" id="kRetention">-</div>
+    </div>
+  </section>
+
+  <section class="grid-2">
+    <div class="card">
+      <div class="card-h">
+        <h2>Daftar File Backup</h2>
+        <span class="hint">Folder ./backups</span>
+      </div>
+      <div class="card-b flush table-wrap">
+        <table>
+          <thead><tr><th>Nama File</th><th>Ukuran</th><th>Waktu Dibuat</th><th>Usia</th></tr></thead>
+          <tbody id="rows"><tr><td colspan="4" class="empty">Memuat data</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2>Strategi Backup (DRP)</h2></div>
+      <div class="card-b">
+        <div class="info-list">
+          <div><span>Metode</span><b>pg_dump format custom (-Fc)</b></div>
+          <div><span>Kompresi</span><b>Level 6 (-Z 6)</b></div>
+          <div><span>Prioritas proses</span><b>nice -n 19 (terendah)</b></div>
+          <div><span>Container</span><b>Terpisah (logistik-backup)</b></div>
+          <div><span>Penulisan file</span><b>Atomik (.part lalu rename)</b></div>
+          <div><span>Interval</span><b id="dInterval">-</b></div>
+          <div><span>Retensi</span><b>File lebih dari 24 jam dihapus</b></div>
+        </div>
+        <p class="muted" style="font-size:12.5px;margin-top:14px">
+          Backup berjalan di container terpisah dengan prioritas CPU terendah, sehingga server API
+          dan database utama tetap melayani input tracking tanpa gangguan.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:18px">
+    <div class="card-h">
+      <h2>Prosedur DR Test</h2>
+      <span class="hint">Jalankan di PowerShell pada folder proyek</span>
+    </div>
+    <div class="card-b">
+      <ol class="steps-doc">
+        <li>
+          <b>Catat waktu mulai, lalu matikan paksa database gudang utama</b>
+          <code>Get-Date -Format "HH:mm:ss.fff"
+docker kill warehouse-db</code>
+        </li>
+        <li>
+          <b>Simulasi kehilangan data (opsional)</b>
+          <code>docker rm warehouse-db
+docker volume rm logistik-dr_pgdata</code>
+        </li>
+        <li>
+          <b>Nyalakan ulang database dan tunggu hingga status healthy</b>
+          <code>docker compose up -d db
+docker compose ps db</code>
+        </li>
+        <li>
+          <b>Pulihkan dari file backup terbaru</b>
+          <code id="restoreCmd">docker cp backups\NAMA_FILE.dump warehouse-db:/tmp/restore.dump
+docker exec warehouse-db pg_restore -U logistik -d logistik --clean --if-exists /tmp/restore.dump</code>
+        </li>
+        <li>
+          <b>Verifikasi sistem siap menerima input tracking baru, lalu catat waktu selesai</b>
+          <code>curl.exe http://localhost:8000/health
+Get-Date -Format "HH:mm:ss.fff"</code>
+        </li>
+      </ol>
+      <p class="muted" style="font-size:12.5px">
+        RTO = waktu selesai (langkah 5) dikurangi waktu mulai (langkah 1).
+        Data yang masuk setelah backup terakhir merupakan potensi kehilangan data (RPO, maksimal satu interval backup).
+      </p>
+    </div>
+  </section>
+</main>
+
+<script src="/static/app.js"></script>
+<script>
+async function load() {
+  const d = await api("/api/backups");
+  const files = d.files;
+  const intervalMin = Math.round(d.interval_seconds / 60);
+  const totalSize = files.reduce((a, f) => a + f.size_bytes, 0);
+
+  $("kInterval").textContent = `Tiap ${intervalMin} menit`;
+  $("kRetention").textContent = `Retensi ${d.retention_hours} jam`;
+  $("dInterval").textContent = `${intervalMin} menit`;
+  $("kCount").textContent = files.length;
+  $("kSize").textContent = `${fmtBytes(totalSize)} total`;
+
+  const card = $("kHealthCard");
+  if (!files.length) {
+    $("kLast").textContent = "Belum ada";
+    $("kLastAt").textContent = "Menunggu backup pertama";
+    $("kHealth").textContent = "Belum ada data";
+    $("kHealthFoot").textContent = "Periksa container logistik-backup";
+    card.style.setProperty("--accent", "var(--c-disimpan)");
+    $("rows").innerHTML = `<tr><td colspan="4" class="empty">Belum ada file backup.</td></tr>`;
+    return;
+  }
+
+  const latest = files[0];
+  const ageSec = (Date.now() - new Date(latest.created_at).getTime()) / 1000;
+  const onTime = ageSec <= d.interval_seconds * 1.5;
+
+  $("kLast").textContent = fmtAgo(latest.created_at);
+  $("kLastAt").textContent = fmtDate(latest.created_at);
+  $("kHealth").textContent = onTime ? "Tepat waktu" : "Terlambat";
+  $("kHealthFoot").textContent = onTime
+    ? `Backup berikutnya sekitar ${Math.max(0, Math.round((d.interval_seconds - ageSec) / 60))} menit lagi`
+    : "Backup melewati jadwal, cek log container";
+  card.style.setProperty("--accent", onTime ? "var(--c-selesai)" : "var(--c-danger)");
+
+  $("restoreCmd").textContent =
+    `docker cp backups\\${latest.name} warehouse-db:/tmp/restore.dump\n` +
+    `docker exec warehouse-db pg_restore -U logistik -d logistik --clean --if-exists /tmp/restore.dump`;
+
+  $("rows").innerHTML = files.map((f, i) => `
+    <tr>
+      <td><span class="code" style="color:var(--text)">${esc(f.name)}</span>${i === 0 ? ' <span class="badge s-SELESAI">Terbaru</span>' : ""}</td>
+      <td class="num">${fmtBytes(f.size_bytes)}</td>
+      <td class="muted">${fmtDate(f.created_at)}</td>
+      <td class="muted">${fmtAgo(f.created_at)}</td>
+    </tr>`).join("");
+}
+
+// Halaman ini tetap memuat data backup walaupun database sedang mati.
+async function runAll() {
+  await checkHealth();
+  try { await load(); } catch (e) { console.error(e); }
+  $("updated").textContent = `Diperbarui ${new Date().toLocaleTimeString("id-ID")}`;
+}
+runAll();
+setInterval(runAll, 10000);
+$("refreshBtn").onclick = runAll;
+</script>
+</body>
+</html>
