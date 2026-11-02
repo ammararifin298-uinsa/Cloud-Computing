@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laporan Pengujian Beban & Auto Scaling | LogistikPro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --line: #e4e9f0;
+      --line-strong: #d3dbe6;
+      --text: #0f1e33;
+      --text-2: #334155;
+      --muted: #64748b;
+
+      --brand: #0b72d9;
+      --brand-hover: #085fb6;
+      --brand-soft: #e7f1fc;
+
+      --c-success: #16a34a;
+      --c-warning: #d97706;
+      --c-danger: #dc2626;
+      --c-info: #0284c7;
+
+      --radius: 12px;
+      --radius-sm: 8px;
+      --shadow: 0 1px 2px rgba(15, 30, 51, .04), 0 4px 14px rgba(15, 30, 51, .04);
+      --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13.5px;
+      line-height: 1.5;
+      display: flex;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ---------- Sidebar ---------- */
+    .sidebar {
+      width: 250px;
+      flex-shrink: 0;
+      background: var(--surface);
+      border-right: 1px solid var(--line);
+      padding: 22px 14px;
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 0 8px 18px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+      text-decoration: none;
+      color: inherit;
+    }
+    .brand-mark {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      background: var(--brand);
+      color: #fff;
+      display: grid; place-items: center;
+      font-weight: 800; font-size: 14px; letter-spacing: .5px;
+      flex-shrink: 0;
+    }
+    .brand-name { font-weight: 800; font-size: 15px; letter-spacing: -.2px; line-height: 1.2; }
+    .brand-sub { font-size: 11.5px; color: var(--muted); font-weight: 500; }
+
+    .nav-label {
+      font-size: 10.5px; font-weight: 700; letter-spacing: .9px;
+      text-transform: uppercase; color: var(--muted);
+      padding: 6px 12px 8px;
+    }
+
+    .nav a {
+      display: block;
+      padding: 9px 12px;
+      margin-bottom: 2px;
+      border-radius: var(--radius-sm);
+      color: var(--text-2);
+      font-weight: 600;
+      text-decoration: none;
+      border-left: 3px solid transparent;
+      transition: background .15s, color .15s;
+    }
+    .nav a:hover { background: var(--surface-2); color: var(--text); }
+    .nav a.active {
+      background: var(--brand-soft);
+      color: var(--brand);
+      border-left-color: var(--brand);
+    }
+
+    .side-status {
+      margin-top: auto;
+      padding: 13px 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface-2);
+    }
+    .side-status small { display: block; font-size: 11px; color: var(--muted); font-weight: 600; }
+    .side-status .row { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-weight: 700; font-size: 13px; }
+    .side-status .meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: #cbd5e1; flex-shrink: 0; }
+    .dot.ok { background: var(--c-success); box-shadow: 0 0 0 4px rgba(22, 163, 74, .16); }
+
+    /* ---------- Main Content ---------- */
+    main {
+      flex: 1;
+      min-width: 0;
+      padding: 28px 36px 48px;
+      width: 100%;
+    }
+
+    .page-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 22px;
+    }
+    .crumb { font-size: 12px; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+    h1 { font-size: 23px; font-weight: 800; letter-spacing: -.5px; line-height: 1.25; color: var(--text); }
+    .page-sub { color: var(--muted); margin-top: 3px; font-size: 13.5px; }
+
+    .head-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+    /* ---------- Buttons ---------- */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      border: 1px solid transparent;
+      background: var(--brand);
+      color: #fff;
+      font-weight: 700; font-size: 13px;
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: background .15s, border-color .15s;
+      min-height: 36px;
+    }
+    .btn:hover { background: var(--brand-hover); }
+    .btn.ghost { background: var(--surface); color: var(--text); border-color: var(--line-strong); }
+    .btn.ghost:hover { background: var(--surface-2); }
+    .btn.sm { padding: 5px 10px; font-size: 12px; border-radius: 6px; min-height: 28px; }
+
+    /* ---------- KPI Cards ---------- */
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .kpi {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .kpi::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+      background: var(--accent, var(--brand));
+    }
+    .kpi .label { font-size: 12px; color: var(--muted); font-weight: 600; }
+    .kpi .value { font-size: 26px; font-weight: 800; letter-spacing: -1px; line-height: 1.2; margin-top: 5px; }
+    .kpi .foot { font-size: 11.5px; color: var(--muted); margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+    .kpi .tag-diff {
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+    }
+    .tag-diff.pos { background: #dcfce7; color: #15803d; }
+    .tag-diff.warn { background: #fef3c7; color: #b45309; }
+
+    /* ---------- Cards & Grids ---------- */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+    .card-h {
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--line);
+      flex-wrap: wrap;
+    }
+    .card-h h2 { font-size: 14.5px; font-weight: 800; letter-spacing: -.2px; }
+    .card-h .hint { font-size: 12px; color: var(--muted); }
+    .card-b { padding: 20px; }
+    .card-b.flush { padding: 0; }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    /* ---------- Table Styles ---------- */
+    .table-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      text-align: left;
+      font-size: 11px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase;
+      color: var(--muted);
+      padding: 11px 18px;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--line);
+      white-space: nowrap;
+    }
+    td { padding: 12px 18px; border-bottom: 1px solid var(--line); font-size: 13px; vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:hover { background: #fafcfe; }
+
+    .code { font-family: var(--mono); font-weight: 600; font-size: 12.5px; }
+    .num { font-variant-numeric: tabular-nums; }
+    .muted { color: var(--muted); }
+
+    /* ---------- Badges ---------- */
+    .badge {
+      display: inline-flex; align-items: center;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11.5px; font-weight: 700;
+      white-space: nowrap;
+    }
+    .badge-success { color: #15803d; background: #dcfce7; border: 1px solid #bbf7d0; }
+    .badge-warning { color: #b45309; background: #fef3c7; border: 1px solid #fde68a; }
+    .badge-info { color: #0369a1; background: #e0f2fe; border: 1px solid #bae6fd; }
+
+    /* ---------- Timeline Log ---------- */
+    .timeline {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .timeline-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      font-size: 12.5px;
+    }
+    .timeline-time {
+      font-family: var(--mono);
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 11.5px;
+      min-width: 65px;
+    }
+
+    /* ---------- Responsive ---------- */
+    @media (max-width: 1024px) {
+      .kpis { grid-template-columns: repeat(2, 1fr); }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      body { flex-direction: column; }
+      .sidebar { width: 100%; height: auto; position: static; border-right: 0; border-bottom: 1px solid var(--line); }
+      main { padding: 18px 14px; }
+      .kpis { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar Menu (Identik dengan LogistikPro) -->
+<aside class="sidebar">
+  <a class="brand" href="/">
+    <div class="brand-mark">K6</div>
+    <div>
+      <div class="brand-name">LogistikPro</div>
+      <div class="brand-sub">Supply Chain Hub</div>
+    </div>
+  </a>
+
+  <div class="nav-label">Menu Pengujian</div>
+  <nav class="nav">
+    <a href="index.html" class="active">Hasil Pertemuan 3</a>
+    <a href="baseline-report.html" target="_blank">Laporan k6 Baseline</a>
+    <a href="autoscale-report.html" target="_blank">Laporan k6 Auto Scale</a>
+    <a href="smoke-report.html" target="_blank">Laporan k6 Smoke Test</a>
+  </nav>
+
+  <div class="nav-label" style="margin-top: 14px;">Aplikasi Logistik</div>
+  <nav class="nav">
+    <a href="http://localhost:8000/" target="_blank">Dashboard Operasional</a>
+    <a href="http://localhost:8000/pengiriman" target="_blank">Master Pengiriman</a>
+    <a href="http://localhost:8000/backup" target="_blank">Status Backup & DR</a>
+  </nav>
+
+  <div class="side-status">
+    <small>Status Infrastruktur Uji</small>
+    <div class="row"><span class="dot ok"></span><span>Pengujian Selesai</span></div>
+    <div class="meta">10 s.d. 1.000 Virtual Users</div>
+  </div>
+</aside>
+
+<!-- Konten Utama -->
+<main>
+  <header class="page-head">
+    <div>
+      <div class="crumb">Dokumentasi Praktikum &bull; Pertemuan 3</div>
+      <h1>Hasil Stress Testing & Auto Scaling</h1>
+      <p class="page-sub">Pengujian ketahanan infrastruktur bertahap (10, 100, 500, hingga 1.000 VU) dan evaluasi bottleneck.</p>
+    </div>
+    <div class="head-actions">
+      <a href="baseline-report.html" target="_blank" class="btn ghost sm">Laporan Detail Baseline</a>
+      <a href="autoscale-report.html" target="_blank" class="btn sm">Laporan Detail Auto Scale</a>
+    </div>
+  </header>
+
+  <!-- Ringkasan KPI -->
+  <section class="kpis">
+    <div class="kpi" style="--accent: var(--brand)">
+      <div class="label">Throughput Puncak</div>
+      <div class="value num">184,96 <span style="font-size:13px;font-weight:600;color:var(--muted)">req/detik</span></div>
+      <div class="foot">
+        <span class="tag-diff pos">+47,1%</span>
+        <span>vs Baseline (125,73 req/detik)</span>
+      </div>
+    </div>
+
+    <div class="kpi" style="--accent: var(--c-success)">
+      <div class="label">Median Response Time (p50)</div>
+      <div class="value num">700 <span style="font-size:13px;font-weight:600;color:var(--muted)">ms</span></div>
+      <div class="foot">
+        <span class="tag-diff pos">-73,6%</span>
+        <span>vs Baseline (2.654 ms)</span>
+      </div>
+    </div>
+
+    <div class="kpi" style="--accent: var(--c-warning)">
+      <div class="label">95th Percentile Latency (p95)</div>
+      <div class="value num">6,28 <span style="font-size:13px;font-weight:600;color:var(--muted)">detik</span></div>
+      <div class="foot">
+        <span class="tag-diff warn">Belum lolos</span>
+        <span>Target SLA &lt; 1,5 detik</span>
+      </div>
+    </div>
+
+    <div class="kpi" style="--accent: var(--c-info)">
+      <div class="label">Total Request & Tingkat Error</div>
+      <div class="value num">107.347</div>
+      <div class="foot">
+        <span class="tag-diff pos">Error 0,00%</span>
+        <span>0 request timeout/5xx</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Grafik Komparasi -->
+  <section class="grid-2">
+    <div class="card">
+      <div class="card-h">
+        <h2>Perbandingan Throughput (Req/Detik)</h2>
+        <span class="hint">Beban maksimal 1.000 VU</span>
+      </div>
+      <div class="card-b">
+        <canvas id="chartThroughput" height="180"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">
+        <h2>Perbandingan Response Time / Latensi</h2>
+        <span class="hint">Satuan milidetik (ms)</span>
+      </div>
+      <div class="card-b">
+        <canvas id="chartLatency" height="180"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tabel Komparasi -->
+  <section class="card">
+    <div class="card-h">
+      <h2>Tabel Perbandingan Metrik Pengujian</h2>
+      <span class="hint">Total durasi pengujian masing-masing skenario: 9 menit 40 detik</span>
+    </div>
+    <div class="card-b flush table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Parameter / Metrik</th>
+            <th>Baseline (1 Replika Tetap)</th>
+            <th>Auto Scaling (1 s.d. 5 Replika)</th>
+            <th>Perubahan</th>
+            <th>Status Evaluasi</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Virtual Users (Tahapan Beban)</strong></td>
+            <td>10 &rarr; 100 &rarr; 500 &rarr; 1.000 VU</td>
+            <td>10 &rarr; 100 &rarr; 500 &rarr; 1.000 VU</td>
+            <td class="muted">-</td>
+            <td><span class="badge badge-info">Sesuai Modul</span></td>
+          </tr>
+          <tr>
+            <td><strong>Total Request Berhasil Diproses</strong></td>
+            <td class="num">72.951 request</td>
+            <td class="num"><strong>107.347 request</strong></td>
+            <td class="num" style="color:var(--c-success);font-weight:700;">+34.396 (+47,1%)</td>
+            <td><span class="badge badge-success">Meningkat</span></td>
+          </tr>
+          <tr>
+            <td><strong>Throughput Rata-rata</strong></td>
+            <td class="num">125,73 req/detik</td>
+            <td class="num"><strong>184,96 req/detik</strong></td>
+            <td class="num" style="color:var(--c-success);font-weight:700;">+59,23 req/detik</td>
+            <td><span class="badge badge-success">Meningkat</span></td>
+          </tr>
+          <tr>
+            <td><strong>Median Response Time (p50)</strong></td>
+            <td class="num">2.654 ms (2,65 s)</td>
+            <td class="num"><strong>700 ms (0,70 s)</strong></td>
+            <td class="num" style="color:var(--c-success);font-weight:700;">-1.954 ms (-73,6%)</td>
+            <td><span class="badge badge-success">Optimal</span></td>
+          </tr>
+          <tr>
+            <td><strong>Rata-rata Response Time</strong></td>
+            <td class="num">2.768 ms (2,76 s)</td>
+            <td class="num"><strong>1.760 ms (1,76 s)</strong></td>
+            <td class="num" style="color:var(--c-success);font-weight:700;">-1.008 ms (-36,4%)</td>
+            <td><span class="badge badge-success">Lebih Cepat</span></td>
+          </tr>
+          <tr>
+            <td><strong>95th Percentile Response Time (p95)</strong></td>
+            <td class="num">6.694 ms (6,69 s)</td>
+            <td class="num">6.280 ms (6,28 s)</td>
+            <td class="num">-414 ms (-6,1%)</td>
+            <td><span class="badge badge-warning">Melebihi SLA (&lt;1,5s)</span></td>
+          </tr>
+          <tr>
+            <td><strong>99th Percentile Response Time (p99)</strong></td>
+            <td class="num">7.273 ms (7,27 s)</td>
+            <td class="num">8.950 ms (8,95 s)</td>
+            <td class="num">+1.677 ms</td>
+            <td><span class="badge badge-warning">Tail Latency Lonjakan</span></td>
+          </tr>
+          <tr>
+            <td><strong>Tingkat Error (Status 5xx / Gagal)</strong></td>
+            <td class="num">0,00% (0 error)</td>
+            <td class="num">0,00% (0 error)</td>
+            <td class="muted">0%</td>
+            <td><span class="badge badge-success">Stabil</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Log Auto Scaler -->
+  <section class="card">
+    <div class="card-h">
+      <h2>Riwayat Reaksi Auto Scaler</h2>
+      <span class="hint">Log ambang batas CPU rata-rata &gt; 70% dan proses scale down otomatis</span>
+    </div>
+    <div class="card-b">
+      <ul class="timeline">
+        <li class="timeline-item">
+          <span class="timeline-time">07:56:34</span>
+          <span class="badge badge-success">Scale Up (1 &rarr; 2 Replika)</span>
+          <span>Beban 500 VU masuk. CPU replika tunggal mencapai <strong>133,6%</strong>. Container ke-2 ditambahkan otomatis.</span>
+        </li>
+        <li class="timeline-item">
+          <span class="timeline-time">07:56:43</span>
+          <span class="badge badge-success">Scale Up (2 &rarr; 3 Replika)</span>
+          <span>Rata-rata CPU gabungan terdeteksi <strong>131,1%</strong>. Container ke-3 ditambahkan otomatis.</span>
+        </li>
+        <li class="timeline-item">
+          <span class="timeline-time">07:56:53</span>
+          <span class="badge badge-success">Scale Up (3 &rarr; 4 Replika)</span>
+          <span>Rata-rata CPU terdeteksi <strong>76,4%</strong>. Container ke-4 ditambahkan otomatis.</span>
+        </li>
+        <li class="timeline-item">
+          <span class="timeline-time">07:58:23</span>
+          <span class="badge badge-success">Scale Up (4 &rarr; 5 Replika)</span>
+          <span>Beban 1.000 VU penuh. CPU mencapai <strong>70,1%</strong>. Container mencapai batas kapasitas maksimum (5 replika).</span>
+        </li>
+        <li class="timeline-item">
+          <span class="timeline-time">08:04:18 &ndash; 08:06:24</span>
+          <span class="badge badge-info">Scale Down (5 &rarr; 4 &rarr; 3 &rarr; 2 &rarr; 1 Replika)</span>
+          <span>Trafik pengujian selesai, rata-rata CPU turun ke &lt;0,2% selama 6 siklus. Replika diturunkan bertahap hingga kembali ke 1.</span>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Analisis Bottleneck -->
+  <section class="card">
+    <div class="card-h">
+      <h2>Analisis Bottleneck Infrastruktur</h2>
+      <span class="hint">Bahan evaluasi laporan praktikum Pertemuan 3</span>
+    </div>
+    <div class="card-b" style="display:flex;flex-direction:column;gap:12px;color:var(--text-2);">
+      <div>
+        <strong>1. Titik Kegagalan Sistem:</strong>
+        <p>Arsitektur tidak mengalami error 500 atau timeout koneksi hingga beban 1.000 VU (error rate 0,00%). Titik kegagalan terletak pada <em>Service Level Agreement (SLA) response time</em>, di mana p95 melebihi batas 1,5 detik saat beban melampaui 500 VU.</p>
+      </div>
+      <div>
+        <strong>2. Bottleneck Skenario Baseline (1 Replika):</strong>
+        <p>Satu proses worker Uvicorn mengalami saturasi CPU penuh (&gt;130%). Permintaan antre dalam buffer koneksi sehingga latensi meningkat proporsional terhadap jumlah VU, membatasi throughput pada angka ~125 req/detik.</p>
+      </div>
+      <div>
+        <strong>3. Efektivitas Auto Scaling:</strong>
+        <p>Auto scaling berhasil menaikkan kapasitas pemrosesan hingga +47,1% (107.347 request) dan memangkas median latensi sebesar 73,6% (dari 2,65 detik menjadi 0,70 detik). Lonjakan p99 terjadi sesaat saat proses startup container baru menerima alokasi beban trafik dari Nginx load balancer.</p>
+      </div>
+      <div>
+        <strong>4. Rekomendasi Optimasi Lanjutan:</strong>
+        <p>Penerapan caching in-memory (Redis) untuk endpoint agregasi <code>/api/dashboard</code>, penambahan index komposit pada tabel PostgreSQL <code>tracking_events(shipment_code, recorded_at)</code>, serta pemisahan node database master-replica.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  // Konfigurasi Chart.js selaras dengan tema terang LogistikPro
+  Chart.defaults.font.family = '"Plus Jakarta Sans", system-ui, sans-serif';
+  Chart.defaults.color = '#64748b';
+
+  // Chart Throughput
+  new Chart(document.getElementById('chartThroughput'), {
+    type: 'bar',
+    data: {
+      labels: ['Baseline (1 Replika)', 'Auto Scaling (1-5 Replika)'],
+      datasets: [{
+        label: 'Throughput (req/detik)',
+        data: [125.73, 184.96],
+        backgroundColor: ['#94a3b8', '#0b72d9'],
+        borderRadius: 6,
+        barThickness: 48
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        y: {
+          grid: { color: '#e4e9f0' },
+          ticks: { color: '#64748b' }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { color: '#0f1e33', font: { weight: '600' } }
+        }
+      }
+    }
+  });
+
+  // Chart Latency
+  new Chart(document.getElementById('chartLatency'), {
+    type: 'bar',
+    data: {
+      labels: ['Rata-rata', 'Median (p50)', 'p90', 'p95', 'p99'],
+      datasets: [
+        {
+          label: 'Baseline (ms)',
+          data: [2768, 2654, 6542, 6694, 7273],
+          backgroundColor: '#94a3b8',
+          borderRadius: 4
+        },
+        {
+          label: 'Auto Scaling (ms)',
+          data: [1760, 700, 4950, 6280, 8950],
+          backgroundColor: '#0b72d9',
+          borderRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: { boxWidth: 12, font: { weight: '600' } }
+        }
+      },
+      scales: {
+        y: {
+          grid: { color: '#e4e9f0' },
+          ticks: { color: '#64748b' },
+          title: { display: true, text: 'Milidetik (ms)', color: '#64748b' }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { color: '#0f1e33', font: { weight: '600' } }
+        }
+      }
+    }
+  });
+</script>
+
+</body>
+</html>

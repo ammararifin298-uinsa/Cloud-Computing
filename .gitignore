@@ -2,3 +2,5 @@ backups/
 __pycache__/
 *.pyc
 .env
+
+loadtest/results/*-raw.csv

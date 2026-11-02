@@ -15,9 +15,22 @@ services:
       interval: 5s
       retries: 10
 
+  # Load balancer: satu pintu masuk (port 8000), membagi trafik ke semua replika api.
+  lb:
+    image: nginx:1.27-alpine
+    container_name: logistik-lb
+    restart: unless-stopped
+    volumes:
+      - ./loadtest/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8000:80"
+    depends_on:
+      - api
+
+  # Tanpa container_name & tanpa port host agar bisa di-scale:
+  #   docker compose up -d --scale api=3   (atau otomatis via autoscaler)
   api:
     build: ./api
-    container_name: logistik-api
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://logistik:logistik@db:5432/logistik
@@ -25,8 +38,8 @@ services:
       BACKUP_INTERVAL: 900
     volumes:
       - ./backups:/backups:ro
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     depends_on:
       db:
         condition: service_healthy
