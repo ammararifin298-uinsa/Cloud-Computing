@@ -59,7 +59,7 @@ flowchart TB
         end
     end
 
-    CloudS3[("Tier 2 Off-site Cloud Object Storage\nS3 / MinIO (lacakin-backups)\nRetensi 7-30 Hari (Tahan Bencana Host)")]
+    CloudS3[("Tier 2 Off-site Cloud Object Storage\nS3 / MinIO (lacakin-backups)\nRetensi 2-30 Hari (Tahan Bencana Host)")]
 
     LB1 -->|"proxy_pass (aktif)"| API1
     LB1 -.->|"Failover"| API2
@@ -85,7 +85,7 @@ flowchart TB
 | `db-primary` | PostgreSQL 16 utama untuk transaksi tulis (`POST`, `DELETE`) dan baca (`GET`) | `backend_net` (internal `5432`, tanpa ekspos host) | `pgdata_primary` | `pg_isready -U logistik`, `wal_level=replica`, `max_wal_senders` |
 | `db-standby` | PostgreSQL 16 replika *Hot Standby* via *WAL Streaming Replication* dari `db-primary` | `backend_net` (internal `5432`, tanpa ekspos host) | `pgdata_standby` | `pg_isready`, siap dipromosikan (`pg_ctl promote`) saat `db-primary` gagal |
 | `backup` | Worker menjalankan `pg_dump -Fc -Z 6` tiap 900s, verifikasi SHA-256, simpan lokal, dan sync ke Cloud S3 | `backend_net` (internal) | `pgbackups` | Penulisan atomik `.part` ke `.dump`, `restart: unless-stopped` |
-| `cloud-s3` | Off-site Cloud Object Storage (MinIO S3-Compatible di localhost / AWS S3 atau R2 di cloud) | `backend_net` / Endpoint HTTPS S3 | `s3data` / Bucket Cloud | Menyimpan salinan arsip harian **7-30 hari** sesuai Aturan 3-2-1 |
+| `cloud-s3` | Off-site Cloud Object Storage (MinIO S3-Compatible di localhost / AWS S3 atau R2 di cloud) | `backend_net` / Endpoint HTTPS S3 | `s3data` / Bucket Cloud | Menyimpan salinan arsip harian **2-30 hari** sesuai Aturan 3-2-1 |
 
 ### C. Mekanisme Failover, Aturan Backup 3-2-1, dan Justifikasi Retensi
 1. **Failover App Server (`api-1` ke `api-2`):** Nginx memantau status `api-1` dan `api-2` (`max_fails=2 fail_timeout=10s`, `proxy_next_upstream error timeout http_502 http_503`). Jika `api-1` mati mendadak, Nginx langsung meneruskan request ke `api-2` tanpa error di sisi pengguna dan tanpa memutuskan login karena sesi disimpan dalam **JWT HS256** (*stateless*).
@@ -95,7 +95,7 @@ flowchart TB
 3. **Aturan Backup 3-2-1 dan Retensi Bertingkat (*Tiered Retention*):**
    - **Mengapa interval 15 menit:** Mengunci **RPO <= 15 menit** sesuai target DRP tanpa membebani CPU/I/O disk seperti backup per menit.
    - **Tier 1 Lokal (`pgbackups`, Retensi 24 Jam):** Menyimpan maksimal 96 arsip terbaru untuk **fast recovery** pada hari berjalan tanpa membuat disk volume container penuh.
-   - **Tier 2 Off-site Cloud S3 (`lacakin-backups`, Retensi 7–30 Hari):** Setiap arsip terkompresi divalidasi (`pg_restore --list` dan checksum **SHA-256**) lalu disinkronkan ke Cloud S3. Jika insiden baru terdeteksi **lebih dari 24 jam** atau seluruh disk host rusak total, data tetap dapat dipulihkan dari Cloud S3.
+   - **Tier 2 Off-site Cloud S3 (`lacakin-backups`, Retensi 2–30 Hari):** Setiap arsip terkompresi divalidasi (`pg_restore --list` dan checksum **SHA-256**) lalu disinkronkan ke Cloud S3. Jika insiden baru terdeteksi **lebih dari 24 jam** atau seluruh disk host rusak total, data tetap dapat dipulihkan dari Cloud S3.
 4. **Isolasi Keamanan (*Defense in Depth*):** Hanya container `lb` yang dapat diakses dari luar melalui port `8000`. Database, App Server, dan Worker Backup berada di jaringan internal tertutup, dan akses daftar backup (`/api/backups`) dibatasi khusus role `superadmin`.
 
 ### D. Justifikasi Pemilihan Teknologi dan Alasan Redundansi (2 LB, 2 API, 2 DB)
