@@ -187,6 +187,9 @@ async function api(path, options = {}) {
     try {
       const body = await res.json();
       if (typeof body.detail === "string") detail = body.detail;
+      else if (Array.isArray(body.detail) && body.detail.length) {
+        detail = body.detail.map((d) => d.msg || "Input tidak valid").join("; ");
+      }
     } catch { /* abaikan */ }
     const err = new Error(detail);
     err.status = res.status;
@@ -277,7 +280,19 @@ function renderSidebar() {
             <div class="brand-sub">Layanan Lacak Pengiriman</div>
           </div>
         </a>
-        <a class="btn sm ghost" href="/login">${ICONS.login} Portal Pegawai</a>`;
+        <nav class="pub-nav">
+          <a href="/lacak#beranda">Beranda</a>
+          <a href="/lacak#cari">Cek Resi</a>
+          <a href="/lacak#alur">Alur Status</a>
+          <a href="/lacak#fitur">Fitur</a>
+          <a href="/lacak#jaringan">Jaringan Hub</a>
+          <a href="/lacak#cara-kerja">Cara Kerja</a>
+        </nav>
+        <div class="pub-actions">
+          <a class="btn sm ghost" href="/lacak#cari" onclick="setTimeout(()=>document.getElementById('code')?.focus(),120)">Lacak Paket</a>
+          <a class="btn sm ghost" href="/register">Daftar</a>
+          <a class="btn sm pub-login-btn" href="/login">${ICONS.login} Login</a>
+        </div>`;
       document.body.insertBefore(bar, sidebar);
     }
     return;

@@ -8,121 +8,99 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/app.css?v=8">
-<style>
-  body.auth-page {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 28px 16px;
-    background: radial-gradient(circle at 50% 0%, #e7f1fc 0%, var(--bg) 55%);
-  }
-  .auth-shell {
-    width: 100%;
-    max-width: 420px;
-  }
-  .auth-head {
-    text-align: center;
-    margin-bottom: 22px;
-  }
-  .auth-mark {
-    width: 56px;
-    height: 56px;
-    margin: 0 auto 14px;
-    border-radius: 14px;
-    display: block;
-    box-shadow: 0 12px 28px -10px rgba(11, 114, 217, .5);
-  }
-  .auth-head h1 {
-    font-size: 22px;
-    font-weight: 800;
-    letter-spacing: -.4px;
-  }
-  .auth-head .page-sub {
-    margin-top: 4px;
-    font-size: 13px;
-  }
-  .auth-card {
-    box-shadow: 0 4px 24px -6px rgba(15, 30, 51, .08);
-  }
-  .auth-switch {
-    margin-top: 16px;
-    padding-top: 14px;
-    border-top: 1px solid var(--line);
-    text-align: center;
-    font-size: 13px;
-    color: var(--muted);
-  }
-  .auth-switch a {
-    color: var(--brand);
-    font-weight: 700;
-    text-decoration: none;
-  }
-  .auth-switch a:hover {
-    text-decoration: underline;
-  }
-  .auth-foot {
-    margin-top: 18px;
-    text-align: center;
-    font-size: 13px;
-    color: var(--muted);
-  }
-  .auth-foot a {
-    color: var(--brand);
-    font-weight: 600;
-    text-decoration: none;
-  }
-  .auth-foot a:hover {
-    text-decoration: underline;
-  }
-</style>
+<link rel="stylesheet" href="/static/app.css?v=10">
 </head>
-<body class="auth-page">
-  <div class="auth-shell">
-    <div class="auth-head">
-      <img class="auth-mark" src="/static/logo.svg" alt="Logo LacakIn" width="56" height="56">
-      <h1>Portal Pegawai LacakIn</h1>
-      <p class="page-sub">Masuk menggunakan NIP, NIK, atau Username pegawai.</p>
+<body class="auth-split-page">
+<div class="auth-split">
+  <!-- Panel Branding -->
+  <aside class="auth-brand">
+    <a class="auth-logo" href="/lacak">
+      <img src="/static/logo.svg" alt="Logo LacakIn" width="42" height="42">
+      <div><b>LacakIn</b><span>Logistik dan Rantai Pasok</span></div>
+    </a>
+
+    <div class="auth-brand-body">
+      <span class="auth-pill"><i></i> Portal Pegawai</span>
+      <h2>Kelola pengiriman<br><span>lebih cepat dan aman.</span></h2>
+      <p>Satu portal untuk kurir, operator gudang, supervisor, dan admin dalam memantau pergerakan paket secara real-time.</p>
+      <ul class="auth-points">
+        <li>
+          <span class="pt-ico"><svg class="ui-ico" viewBox="0 0 24 24"><path d="M12 22s8-4.5 8-11a8 8 0 0 0-16 0c0 6.5 8 11 8 11Z"/><circle cx="12" cy="11" r="3"/></svg></span>
+          <div><b>Checkpoint Real-Time</b><small>Catat status dan lokasi paket lengkap dengan bukti foto.</small></div>
+        </li>
+        <li>
+          <span class="pt-ico"><svg class="ui-ico" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+          <div><b>Akses Sesuai Jabatan</b><small>Menu dan aksi otomatis menyesuaikan peran Anda.</small></div>
+        </li>
+        <li>
+          <span class="pt-ico"><svg class="ui-ico" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg></span>
+          <div><b>Data Pengiriman Terjaga</b><small>Seluruh riwayat perjalanan paket tercatat rapi dan akurat.</small></div>
+        </li>
+      </ul>
     </div>
 
-    <div class="card auth-card">
-      <div class="card-b">
-        <form id="loginForm" method="post" onsubmit="return false;" autocomplete="off" novalidate>
-          <div class="field">
-            <label for="lUser">NIP, NIK, atau Username</label>
-            <input id="lUser" name="lacak_ident" placeholder="Contoh: SUP-0001, superadmin, atau 16 digit NIK" required autocomplete="off">
-            <div id="errUser" class="help" style="color:#dc2626;font-weight:600" hidden></div>
-          </div>
-          <div class="field">
-            <label for="lPass">Kata Sandi</label>
-            <div class="pass-wrap">
-              <input id="lPass" name="lacak_pass" type="password" placeholder="Masukkan kata sandi" required autocomplete="new-password">
-              <button type="button" class="btn-toggle-pass" id="btnTogglePass" title="Lihat/Sembunyikan kata sandi"></button>
-            </div>
-            <div id="errPass" class="help" style="color:#dc2626;font-weight:600" hidden></div>
-          </div>
-          <div id="errBoth" style="padding:10px 12px;border-radius:8px;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;font-size:13px;font-weight:600;margin-bottom:12px" hidden></div>
-          <button class="btn block" type="submit" id="lBtn">Masuk ke Sistem</button>
-        </form>
+    <div class="auth-brand-foot">&copy; 2026 LacakIn &middot; Kelompok 6 Cloud Computing</div>
+  </aside>
 
-        <div class="auth-switch">
-          Belum punya akun pegawai? <a href="/register">Daftar sekarang</a>
+  <!-- Panel Form -->
+  <main class="auth-main">
+    <div class="auth-box">
+      <a class="auth-back" href="/lacak">
+        <svg class="ui-ico" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>
+        Kembali ke Lacak Paket
+      </a>
+
+      <div class="auth-title">
+        <h1>Selamat Datang Kembali</h1>
+        <p>Masuk menggunakan NIP, NIK, atau Username pegawai Anda.</p>
+      </div>
+
+      <form id="loginForm" method="post" onsubmit="return false;" autocomplete="off" novalidate>
+        <div class="field">
+          <label for="lUser">NIP, NIK, atau Username</label>
+          <div class="ico-input">
+            <svg class="lead" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <input id="lUser" name="lacak_ident" placeholder="Masukkan NIP, NIK, atau Username" required autocomplete="off">
+          </div>
+          <div id="errUser" class="help" style="color:#dc2626;font-weight:600" hidden></div>
         </div>
+
+        <div class="field">
+          <label for="lPass">Kata Sandi</label>
+          <div class="pass-wrap ico-input">
+            <svg class="lead" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <input id="lPass" name="lacak_pass" type="password" placeholder="Masukkan kata sandi" required autocomplete="new-password">
+            <button type="button" class="btn-toggle-pass" id="btnTogglePass" title="Lihat/Sembunyikan kata sandi"></button>
+          </div>
+          <div id="errPass" class="help" style="color:#dc2626;font-weight:600" hidden></div>
+        </div>
+
+        <div id="errBoth" class="err-box" hidden></div>
+
+        <button class="btn block btn-submit" type="submit" id="lBtn">
+          Masuk ke Sistem
+          <svg class="ui-ico" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </button>
+      </form>
+
+      <div class="auth-divider">atau</div>
+      <div class="auth-alt">Belum punya akun pegawai? <a href="/register">Daftar sekarang</a></div>
+
+      <div class="auth-secure">
+        <svg class="ui-ico" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>
+        Koneksi aman dan akun pegawai terlindungi
       </div>
     </div>
+  </main>
+</div>
 
-    <div class="auth-foot">
-      <a href="/lacak">Lacak Resi Pelanggan (Publik)</a>
-    </div>
-  </div>
-
-<script src="/static/app.js?v=8"></script>
+<script src="/static/app.js?v=10"></script>
 <script>
 if (typeof attachPasswordToggle === "function") {
   attachPasswordToggle("lPass", "btnTogglePass");
 }
+
+const BTN_LABEL = $("lBtn").innerHTML;
 
 $("loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -147,8 +125,20 @@ $("loginForm").addEventListener("submit", async (e) => {
     $("lUser").style.borderColor = "#dc2626";
     return;
   }
+  if (ident.length < 3) {
+    $("errUser").textContent = "NIP / NIK / Username minimal 3 karakter.";
+    $("errUser").hidden = false;
+    $("lUser").style.borderColor = "#dc2626";
+    return;
+  }
   if (!pass) {
     $("errPass").textContent = "Kata sandi wajib diisi.";
+    $("errPass").hidden = false;
+    $("lPass").style.borderColor = "#dc2626";
+    return;
+  }
+  if (pass.length < 4) {
+    $("errPass").textContent = "Kata sandi minimal 4 karakter.";
     $("errPass").hidden = false;
     $("lPass").style.borderColor = "#dc2626";
     return;
@@ -156,17 +146,18 @@ $("loginForm").addEventListener("submit", async (e) => {
 
   const btn = $("lBtn");
   btn.disabled = true;
+  btn.textContent = "Memeriksa akun...";
   try {
     const res = await api("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ identifier: ident, password: pass }),
     });
     setAuth(res.access_token, res.user);
-    toast(`Selamat datang, ${res.user.full_name} (${res.user.employee_code})`);
+    toast(`Selamat datang, ${res.user.full_name}`);
     setTimeout(() => { location.href = "/"; }, 400);
   } catch (err) {
     const msg = err.message || "Gagal masuk";
-    if (msg.includes("keduanya salah")) {
+    if (msg.includes("keduanya salah") || (msg.includes("tidak ditemukan") && msg.includes("Kata Sandi salah"))) {
       $("errBoth").textContent = msg;
       $("errBoth").hidden = false;
       $("lUser").style.borderColor = "#dc2626";
@@ -186,6 +177,7 @@ $("loginForm").addEventListener("submit", async (e) => {
     toast(msg, "err");
   } finally {
     btn.disabled = false;
+    btn.innerHTML = BTN_LABEL;
   }
 });
 </script>

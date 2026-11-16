@@ -1,261 +1,445 @@
 <!DOCTYPE html>
 <html lang="id">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pendaftaran Pegawai | LacakIn</title>
-<link rel="icon" type="image/svg+xml" href="/static/logo.svg">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/app.css?v=8">
-<style>
-  body.auth-page {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 32px 16px;
-    background: radial-gradient(circle at 50% 0%, #e7f1fc 0%, var(--bg) 55%);
-  }
-  .reg-shell {
-    width: 100%;
-    max-width: 580px;
-  }
-  .auth-head {
-    text-align: center;
-    margin-bottom: 20px;
-  }
-  .auth-mark {
-    width: 52px;
-    height: 52px;
-    margin: 0 auto 12px;
-    border-radius: 14px;
-    display: block;
-    box-shadow: 0 12px 28px -10px rgba(11, 114, 217, .5);
-  }
-  .auth-head h1 {
-    font-size: 22px;
-    font-weight: 800;
-    letter-spacing: -.4px;
-  }
-  .auth-head .page-sub {
-    margin-top: 4px;
-    font-size: 13px;
-  }
-  .auth-card {
-    box-shadow: 0 4px 24px -6px rgba(15, 30, 51, .08);
-  }
-  .id-preview {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 14px;
-    border-radius: 9px;
-    background: var(--brand-soft);
-    border: 1px solid #bfdbfe;
-    margin-bottom: 16px;
-    font-size: 12.5px;
-    color: var(--text-2);
-  }
-  .id-preview strong {
-    font-family: var(--mono);
-    font-size: 13.5px;
-    color: var(--brand);
-  }
-  .auth-switch {
-    margin-top: 16px;
-    padding-top: 14px;
-    border-top: 1px solid var(--line);
-    text-align: center;
-    font-size: 13px;
-    color: var(--muted);
-  }
-  .auth-switch a {
-    color: var(--brand);
-    font-weight: 700;
-    text-decoration: none;
-  }
-  .auth-switch a:hover {
-    text-decoration: underline;
-  }
-  .reg-done {
-    text-align: center;
-    padding: 16px 8px;
-  }
-  .reg-done .emp-badge {
-    display: inline-block;
-    margin: 12px 0 16px;
-    padding: 10px 20px;
-    border-radius: 10px;
-    background: var(--brand-soft);
-    border: 1px solid #bfdbfe;
-    font-family: var(--mono);
-    font-size: 20px;
-    font-weight: 800;
-    color: var(--brand);
-  }
-</style>
-</head>
-<body class="auth-page">
-  <div class="reg-shell">
-    <div class="auth-head">
-      <img class="auth-mark" src="/static/logo.svg" alt="Logo LacakIn" width="52" height="52">
-      <h1>Pendaftaran Pegawai LacakIn</h1>
-      <p class="page-sub">Lengkapi identitas karyawan. Nomor pegawai diterbitkan otomatis sesuai jabatan.</p>
-    </div>
 
-    <div class="card auth-card">
-      <div class="card-b">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pendaftaran Pegawai | LacakIn</title>
+  <link rel="icon" type="image/svg+xml" href="/static/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="/static/app.css?v=10">
+  <style>
+    .id-preview {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      margin-bottom: 18px;
+      background: linear-gradient(135deg, #eef6ff 0%, #e2effd 100%);
+      border: 1px solid #c7ddf7;
+      font-size: 12.5px;
+      color: var(--text-2);
+    }
+
+    .id-preview .lbl {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+    }
+
+    .id-preview .lbl svg {
+      width: 18px;
+      height: 18px;
+      color: var(--brand);
+    }
+
+    .id-preview strong {
+      font-family: var(--mono);
+      font-size: 14px;
+      color: var(--brand);
+      background: #fff;
+      padding: 4px 10px;
+      border-radius: 8px;
+      border: 1px solid #c7ddf7;
+    }
+
+    .reg-done {
+      text-align: center;
+      padding: 18px 4px;
+    }
+
+    .reg-done .ok-ico {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      margin: 0 auto 14px;
+      display: grid;
+      place-items: center;
+      background: #dcfce7;
+      color: #16a34a;
+      box-shadow: 0 0 0 10px #f0fdf4;
+    }
+
+    .reg-done .ok-ico svg {
+      width: 30px;
+      height: 30px;
+    }
+
+    .reg-done h2 {
+      font-size: 22px;
+      letter-spacing: -.4px;
+    }
+
+    .reg-done .emp-badge {
+      display: inline-block;
+      margin: 14px 0 12px;
+      padding: 12px 24px;
+      border-radius: 12px;
+      background: var(--brand-soft);
+      border: 1px dashed #93c5fd;
+      font-family: var(--mono);
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--brand);
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+
+<body class="auth-split-page">
+  <div class="auth-split">
+    <!-- Panel Branding -->
+    <aside class="auth-brand">
+      <a class="auth-logo" href="/lacak">
+        <img src="/static/logo.svg" alt="Logo LacakIn" width="42" height="42">
+        <div><b>LacakIn</b><span>Logistik dan Rantai Pasok</span></div>
+      </a>
+
+      <div class="auth-brand-body">
+        <span class="auth-pill"><i></i> Pendaftaran Pegawai</span>
+        <h2>Bergabung dengan<br><span>tim logistik LacakIn.</span></h2>
+        <p>Lengkapi identitas Anda. Nomor Induk Pegawai (NIP) diterbitkan otomatis sesuai jabatan yang dipilih.</p>
+        <ul class="auth-points">
+          <li>
+            <span class="pt-ico"><svg class="ui-ico" viewBox="0 0 24 24">
+                <rect x="3" y="4" width="18" height="16" rx="2" />
+                <circle cx="9" cy="10" r="2" />
+                <path d="M15 8h2" />
+                <path d="M15 12h2" />
+                <path d="M7 16h10" />
+              </svg></span>
+            <div><b>Nomor Pegawai Otomatis</b><small>Diterbitkan langsung oleh sistem sesuai jabatan pilihan
+                Anda.</small></div>
+          </li>
+          <li>
+            <span class="pt-ico"><svg class="ui-ico" viewBox="0 0 24 24">
+                <path d="M5 12h14" />
+                <path d="m12 5 7 7-7 7" />
+              </svg></span>
+            <div><b>Langsung Bisa Bekerja</b><small>Akun aktif seketika dan langsung masuk ke dashboard.</small></div>
+          </li>
+          <li>
+            <span class="pt-ico"><svg class="ui-ico" viewBox="0 0 24 24">
+                <rect x="3" y="11" width="18" height="11" rx="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg></span>
+            <div><b>Keamanan Akun Pegawai</b><small>Data identitas dan kata sandi pegawai dijaga kerahasiaannya.</small>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <div class="auth-brand-foot">&copy; 2026 LacakIn &middot; Kelompok 6 Cloud Computing</div>
+    </aside>
+
+    <!-- Panel Form -->
+    <main class="auth-main">
+      <div class="auth-box wide">
+        <a class="auth-back" href="/login">
+          <svg class="ui-ico" viewBox="0 0 24 24">
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+          Kembali ke Halaman Masuk
+        </a>
+
         <div id="doneBox" class="reg-done" hidden>
+          <div class="ok-ico"><svg class="ui-ico" viewBox="0 0 24 24">
+              <path d="M20 6 9 17l-5-5" />
+            </svg></div>
           <h2>Pendaftaran Berhasil</h2>
-          <p class="muted" style="margin-top:6px">Akun pegawai Anda aktif dan siap digunakan. Simpan Nomor Pegawai berikut:</p>
+          <p class="muted" style="margin-top:6px">Akun pegawai Anda aktif dan siap digunakan. Simpan Nomor Pegawai
+            berikut:</p>
           <div class="emp-badge" id="genCode">-</div>
-          <p class="muted" id="genMeta" style="font-size:13px;margin-bottom:18px"></p>
-          <a class="btn block" href="/">Masuk ke Dashboard Pegawai</a>
+          <p class="muted" id="genMeta" style="font-size:13px;margin-bottom:20px"></p>
+          <a class="btn block btn-submit" href="/">Masuk ke Dashboard Pegawai</a>
         </div>
 
-        <form id="registerForm" method="post" onsubmit="return false;" autocomplete="off" novalidate>
-          <div class="id-preview">
-            <span>Format Nomor Pegawai otomatis</span>
-            <strong id="codePreview">KUR-XXXX</strong>
+        <div id="formWrap">
+          <div class="auth-title">
+            <h1>Buat Akun Pegawai</h1>
+            <p>Isi data dengan benar sesuai identitas resmi Anda.</p>
           </div>
 
-          <div class="field-grid">
-            <div class="field">
-              <label for="rRole">Jabatan / Peran</label>
-              <select id="rRole" required>
-                <option value="kurir">Kurir Lapangan (KUR)</option>
-                <option value="operator">Operator Gudang (OPR)</option>
-                <option value="supervisor">Supervisor Monitoring (SPV)</option>
-              </select>
+          <form id="registerForm" method="post" onsubmit="return false;" autocomplete="off" novalidate>
+            <div class="reg-section">1. Jabatan dan Penempatan</div>
+
+            <div class="role-cards" id="roleCards">
+              <label class="role-card">
+                <input type="radio" name="rRole" value="kurir" checked>
+                <span class="rc-body">
+                  <span class="rc-ico"><svg viewBox="0 0 24 24">
+                      <path d="M10 17h4V5H2v12h3" />
+                      <path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h1" />
+                      <circle cx="7.5" cy="17.5" r="2.5" />
+                      <circle cx="17.5" cy="17.5" r="2.5" />
+                    </svg></span>
+                  <span><b>Kurir Lapangan</b><br><small>Pengantaran Paket</small></span>
+                </span>
+              </label>
+              <label class="role-card">
+                <input type="radio" name="rRole" value="operator">
+                <span class="rc-body">
+                  <span class="rc-ico"><svg viewBox="0 0 24 24">
+                      <path
+                        d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+                      <path d="m3.3 7 8.7 5 8.7-5" />
+                      <path d="M12 22V12" />
+                    </svg></span>
+                  <span><b>Operator Gudang</b><br><small>Gudang dan Sortir</small></span>
+                </span>
+              </label>
+              <label class="role-card">
+                <input type="radio" name="rRole" value="supervisor">
+                <span class="rc-body">
+                  <span class="rc-ico"><svg viewBox="0 0 24 24">
+                      <path d="M3 3v18h18" />
+                      <path d="m19 9-5 5-4-4-3 3" />
+                    </svg></span>
+                  <span><b>Supervisor</b><br><small>Pantau Operasional</small></span>
+                </span>
+              </label>
             </div>
+
             <div class="field">
               <label for="rStation">Unit / Lokasi Penempatan</label>
-              <select id="rStation" required></select>
-            </div>
-          </div>
-
-          <div class="field-grid">
-            <div class="field">
-              <label for="rName">Nama Lengkap (sesuai KTP)</label>
-              <input id="rName" placeholder="Contoh: Budi Santoso" required>
-            </div>
-            <div class="field">
-              <label for="rNik">NIK (16 Digit)</label>
-              <input id="rNik" inputmode="numeric" maxlength="16" placeholder="16 digit angka KTP" required>
-            </div>
-          </div>
-
-          <div class="field-grid">
-            <div class="field">
-              <label for="rPhone">No. HP / WhatsApp</label>
-              <input id="rPhone" type="tel" placeholder="08xxxxxxxxxx" required>
-            </div>
-            <div class="field">
-              <label for="rEmail">Email Kerja</label>
-              <input id="rEmail" type="email" placeholder="nama@lacakin.id" required>
-            </div>
-          </div>
-
-          <div class="field">
-            <label for="rUser">Username</label>
-            <input id="rUser" placeholder="Huruf kecil, angka, titik, atau garis bawah" required autocomplete="off">
-          </div>
-
-          <div class="field-grid">
-            <div class="field">
-              <label for="rPass">Kata Sandi</label>
-              <div class="pass-wrap">
-                <input id="rPass" type="password" placeholder="Minimal 6 karakter" required autocomplete="new-password">
-                <button type="button" class="btn-toggle-pass" id="btnTogglePass1" title="Lihat/Sembunyikan kata sandi"></button>
+              <div class="ico-input">
+                <svg class="lead" viewBox="0 0 24 24">
+                  <path d="M12 22s8-4.5 8-11a8 8 0 0 0-16 0c0 6.5 8 11 8 11Z" />
+                  <circle cx="12" cy="11" r="3" />
+                </svg>
+                <select id="rStation" required></select>
               </div>
             </div>
-            <div class="field">
-              <label for="rPass2">Konfirmasi Kata Sandi</label>
-              <div class="pass-wrap">
-                <input id="rPass2" type="password" placeholder="Ulangi kata sandi" required autocomplete="new-password">
-                <button type="button" class="btn-toggle-pass" id="btnTogglePass2" title="Lihat/Sembunyikan kata sandi"></button>
+
+            <div class="id-preview">
+              <span class="lbl">
+                <svg class="ui-ico" viewBox="0 0 24 24">
+                  <rect x="3" y="4" width="18" height="16" rx="2" />
+                  <circle cx="9" cy="10" r="2" />
+                  <path d="M15 8h2" />
+                  <path d="M15 12h2" />
+                  <path d="M7 16h10" />
+                </svg>
+                Nomor Pegawai diterbitkan otomatis
+              </span>
+              <strong id="codePreview">Kurir Lapangan</strong>
+            </div>
+
+            <div class="reg-section">2. Data Pribadi</div>
+
+            <div class="field-grid">
+              <div class="field">
+                <label for="rName">Nama Lengkap (sesuai KTP)</label>
+                <div class="ico-input">
+                  <svg class="lead" viewBox="0 0 24 24">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                  <input id="rName" placeholder="Contoh: Budi Santoso" required>
+                </div>
+              </div>
+              <div class="field">
+                <label for="rNik">NIK (16 Digit)</label>
+                <div class="ico-input">
+                  <svg class="lead" viewBox="0 0 24 24">
+                    <rect x="3" y="4" width="18" height="16" rx="2" />
+                    <path d="M7 9h10" />
+                    <path d="M7 13h6" />
+                  </svg>
+                  <input id="rNik" inputmode="numeric" maxlength="16" placeholder="16 digit angka KTP" required>
+                </div>
               </div>
             </div>
-          </div>
 
-          <button class="btn block" type="submit" id="rBtn">Daftarkan Pegawai</button>
-        </form>
+            <div class="field-grid">
+              <div class="field">
+                <label for="rPhone">No. HP / WhatsApp</label>
+                <div class="ico-input">
+                  <svg class="lead" viewBox="0 0 24 24">
+                    <rect x="5" y="2" width="14" height="20" rx="2" />
+                    <path d="M12 18h.01" />
+                  </svg>
+                  <input id="rPhone" type="tel" placeholder="08xxxxxxxxxx" required>
+                </div>
+              </div>
+              <div class="field">
+                <label for="rEmail">Email Kerja</label>
+                <div class="ico-input">
+                  <svg class="lead" viewBox="0 0 24 24">
+                    <rect x="2" y="4" width="20" height="16" rx="2" />
+                    <path d="m22 7-10 6L2 7" />
+                  </svg>
+                  <input id="rEmail" type="email" placeholder="nama@lacakin.id" required>
+                </div>
+              </div>
+            </div>
 
-        <div class="auth-switch" id="switchFoot">
-          Sudah punya akun pegawai? <a href="/login">Masuk di sini</a> &middot; <a href="/lacak">Lacak Resi Publik</a>
+            <div class="reg-section">3. Keamanan Akun</div>
+
+            <div class="field">
+              <label for="rUser">Username</label>
+              <div class="ico-input">
+                <svg class="lead" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="4" />
+                  <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8" />
+                </svg>
+                <input id="rUser" placeholder="Huruf kecil, angka, titik, atau garis bawah" required autocomplete="off">
+              </div>
+            </div>
+
+            <div class="field-grid">
+              <div class="field">
+                <label for="rPass">Kata Sandi</label>
+                <div class="pass-wrap ico-input">
+                  <svg class="lead" viewBox="0 0 24 24">
+                    <rect x="3" y="11" width="18" height="11" rx="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                  <input id="rPass" type="password" placeholder="Minimal 6 karakter" required
+                    autocomplete="new-password">
+                  <button type="button" class="btn-toggle-pass" id="btnTogglePass1"
+                    title="Lihat/Sembunyikan kata sandi"></button>
+                </div>
+                <div class="pw-meter" id="pwMeter" data-lv="0"><i></i><i></i><i></i><i></i></div>
+                <div class="pw-label" id="pwLabel">Kekuatan kata sandi</div>
+              </div>
+              <div class="field">
+                <label for="rPass2">Konfirmasi Kata Sandi</label>
+                <div class="pass-wrap ico-input">
+                  <svg class="lead" viewBox="0 0 24 24">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+                    <path d="m9 12 2 2 4-4" />
+                  </svg>
+                  <input id="rPass2" type="password" placeholder="Ulangi kata sandi" required
+                    autocomplete="new-password">
+                  <button type="button" class="btn-toggle-pass" id="btnTogglePass2"
+                    title="Lihat/Sembunyikan kata sandi"></button>
+                </div>
+                <div class="pw-label" id="pwMatch"></div>
+              </div>
+            </div>
+
+            <button class="btn block btn-submit" type="submit" id="rBtn">
+              Daftarkan Pegawai
+              <svg class="ui-ico" viewBox="0 0 24 24">
+                <path d="M5 12h14" />
+                <path d="m12 5 7 7-7 7" />
+              </svg>
+            </button>
+          </form>
+
+          <div class="auth-divider">atau</div>
+          <div class="auth-alt">Sudah punya akun pegawai? <a href="/login">Masuk di sini</a> &middot; <a
+              href="/lacak">Lacak Resi Publik</a></div>
         </div>
       </div>
-    </div>
+    </main>
   </div>
 
-<script src="/static/app.js?v=8"></script>
-<script>
-attachPasswordToggle("rPass", "btnTogglePass1");
-attachPasswordToggle("rPass2", "btnTogglePass2");
+  <script src="/static/app.js?v=10"></script>
+  <script>
+    attachPasswordToggle("rPass", "btnTogglePass1");
+    attachPasswordToggle("rPass2", "btnTogglePass2");
 
-const PREFIX = { kurir: "KUR-XXXX", operator: "OPR-XXXX", supervisor: "SPV-XXXX" };
+    const PREFIX = { kurir: "Kurir Lapangan", operator: "Operator Gudang", supervisor: "Supervisor" };
+    const getRole = () => document.querySelector('input[name="rRole"]:checked')?.value || "kurir";
+    const BTN_LABEL = $("rBtn").innerHTML;
 
-$("rStation").innerHTML = LOCATIONS
-  .filter((g) => g.group !== "Last-Mile")
-  .map((g) => `<optgroup label="${esc(g.group)}">${g.items.map((i) => `<option>${esc(i)}</option>`).join("")}</optgroup>`)
-  .join("") + `<option>Hub Kurir Last-Mile</option>`;
+    $("rStation").innerHTML = LOCATIONS
+      .filter((g) => g.group !== "Last-Mile")
+      .map((g) => `<optgroup label="${esc(g.group)}">${g.items.map((i) => `<option>${esc(i)}</option>`).join("")}</optgroup>`)
+      .join("") + `<option>Hub Kurir Last-Mile</option>`;
 
-$("rRole").addEventListener("change", () => {
-  $("codePreview").textContent = PREFIX[$("rRole").value] || "EMP-XXXX";
-});
-
-$("registerForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const nik = $("rNik").value.trim();
-  const pass = $("rPass").value;
-  const pass2 = $("rPass2").value;
-
-  if (!/^\d{16}$/.test(nik)) {
-    toast("NIK harus terdiri dari tepat 16 digit angka.", "err");
-    return;
-  }
-  if (pass.length < 6) {
-    toast("Kata sandi minimal 6 karakter.", "err");
-    return;
-  }
-  if (pass !== pass2) {
-    toast("Konfirmasi kata sandi tidak cocok.", "err");
-    return;
-  }
-
-  const btn = $("rBtn");
-  btn.disabled = true;
-  try {
-    const res = await api("/api/auth/register", {
-      method: "POST",
-      body: JSON.stringify({
-        role: $("rRole").value,
-        full_name: $("rName").value.trim(),
-        nik,
-        phone: $("rPhone").value.trim(),
-        email: $("rEmail").value.trim(),
-        station: $("rStation").value,
-        username: $("rUser").value.trim(),
-        password: pass,
-      }),
+    $("roleCards").addEventListener("change", () => {
+      $("codePreview").textContent = PREFIX[getRole()] || "EMP-XXXX";
     });
-    setAuth(res.access_token, res.user);
-    $("registerForm").hidden = true;
-    $("switchFoot").hidden = true;
-    $("genCode").textContent = res.user.employee_code;
-    $("genMeta").textContent = `${res.user.full_name} (${ROLE_LABELS[res.user.role] || res.user.role}) - ${res.user.station}`;
-    $("doneBox").hidden = false;
-    toast(`Pegawai terdaftar dengan kode ${res.user.employee_code}`);
-  } catch (err) {
-    toast(err.message, "err");
-  } finally {
-    btn.disabled = false;
-  }
-});
-</script>
-</body>
-</html>
 
+    $("rNik").addEventListener("input", (e) => {
+      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 16);
+    });
+
+    function updateStrength() {
+      const p = $("rPass").value;
+      let lv = 0;
+      if (p.length >= 6) lv++;
+      if (p.length >= 10) lv++;
+      if (/[A-Z]/.test(p) && /[a-z]/.test(p)) lv++;
+      if (/\d/.test(p) && /[^A-Za-z0-9]/.test(p)) lv++;
+      if (p && lv === 0) lv = 1;
+      $("pwMeter").dataset.lv = String(lv);
+      $("pwLabel").textContent = !p ? "Kekuatan kata sandi" : ["Lemah", "Lemah", "Cukup", "Kuat", "Sangat kuat"][lv];
+      updateMatch();
+    }
+    function updateMatch() {
+      const a = $("rPass").value, b = $("rPass2").value;
+      const el = $("pwMatch");
+      if (!b) { el.textContent = ""; return; }
+      el.textContent = a === b ? "Kata sandi cocok" : "Kata sandi belum cocok";
+      el.style.color = a === b ? "#16a34a" : "#dc2626";
+    }
+    $("rPass").addEventListener("input", updateStrength);
+    $("rPass2").addEventListener("input", updateMatch);
+
+    $("registerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const nik = $("rNik").value.trim();
+      const pass = $("rPass").value;
+      const pass2 = $("rPass2").value;
+
+      if ($("rName").value.trim().length < 3) {
+        toast("Nama lengkap minimal 3 karakter.", "err");
+        return;
+      }
+      if (!/^\d{16}$/.test(nik)) {
+        toast("NIK harus terdiri dari tepat 16 digit angka.", "err");
+        return;
+      }
+      if (pass.length < 6) {
+        toast("Kata sandi minimal 6 karakter.", "err");
+        return;
+      }
+      if (pass !== pass2) {
+        toast("Konfirmasi kata sandi tidak cocok.", "err");
+        return;
+      }
+
+      const btn = $("rBtn");
+      btn.disabled = true;
+      btn.textContent = "Mendaftarkan...";
+      try {
+        const res = await api("/api/auth/register", {
+          method: "POST",
+          body: JSON.stringify({
+            role: getRole(),
+            full_name: $("rName").value.trim(),
+            nik,
+            phone: $("rPhone").value.trim(),
+            email: $("rEmail").value.trim(),
+            station: $("rStation").value,
+            username: $("rUser").value.trim(),
+            password: pass,
+          }),
+        });
+        setAuth(res.access_token, res.user);
+        $("formWrap").hidden = true;
+        $("genCode").textContent = res.user.employee_code;
+        $("genMeta").textContent = `${res.user.full_name} (${ROLE_LABELS[res.user.role] || res.user.role}) - ${res.user.station}`;
+        $("doneBox").hidden = false;
+        toast(`Pegawai terdaftar dengan kode ${res.user.employee_code}`);
+      } catch (err) {
+        toast(err.message, "err");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = BTN_LABEL;
+      }
+    });
+  </script>
+</body>
+
+</html>

@@ -266,8 +266,8 @@ class EventIn(BaseModel):
 
 
 class LoginIn(BaseModel):
-    identifier: str = Field(min_length=3, max_length=50)
-    password: str = Field(min_length=4, max_length=100)
+    identifier: str = Field(min_length=1, max_length=50)
+    password: str = Field(min_length=1, max_length=100)
 
 
 class RegisterIn(BaseModel):
@@ -311,16 +311,16 @@ def login(body: LoginIn):
             if not pass_matches_someone:
                 raise HTTPException(
                     status_code=401,
-                    detail="NIP / NIK / Username tidak ditemukan dan Kata Sandi juga salah.",
+                    detail="NIP / NIK / Username tidak ditemukan dan Kata Sandi salah.",
                 )
             raise HTTPException(
                 status_code=401,
-                detail=f"NIP / NIK / Username '{ident}' tidak ditemukan. Periksa kembali identitas Anda.",
+                detail="NIP / NIK / Username tidak ditemukan. Periksa kembali identitas Anda.",
             )
     if not verify_password(body.password, user["password_hash"]):
         raise HTTPException(
             status_code=401,
-            detail=f"Kata sandi salah untuk akun {user['employee_code']} ({user['full_name']}).",
+            detail="Kata sandi salah. Periksa kembali kata sandi Anda.",
         )
     if not user["is_active"]:
         raise HTTPException(status_code=403, detail="Akun pegawai Anda sedang dinonaktifkan. Hubungi Admin atau Superadmin.")
