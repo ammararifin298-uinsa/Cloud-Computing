@@ -3,12 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ringkasan | Dashboard Logistik dan Rantai Pasok</title>
+<title>Ringkasan | LacakIn</title>
+<link rel="icon" type="image/svg+xml" href="/static/logo.svg">
 <meta name="description" content="Ringkasan status pengiriman dan aktivitas tracking logistik secara real-time.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="/static/app.css?v=8">
 </head>
 <body>
 <aside class="sidebar" id="sidebar"></aside>
@@ -73,11 +74,8 @@
         <h2>Akses Cepat</h2>
       </div>
       <div class="card-b">
-        <div class="info-list">
-          <div><span>Catat paket baru atau update lokasi</span><a class="btn sm" href="/checkpoint">Catat Checkpoint</a></div>
-          <div><span>Kelola dan hapus data pengiriman</span><a class="btn sm ghost" href="/pengiriman">Master Pengiriman</a></div>
+        <div class="info-list" id="quickActions">
           <div><span>Lihat riwayat perjalanan paket</span><a class="btn sm ghost" href="/lacak">Lacak Pengiriman</a></div>
-          <div><span>Status backup dan prosedur DR</span><a class="btn sm ghost" href="/backup">Backup dan DR</a></div>
         </div>
       </div>
     </div>
@@ -99,8 +97,10 @@
   </section>
 </main>
 
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v=8"></script>
 <script>
+if (!getAuth()) location.replace("/lacak");
+
 function renderDonut(map, total) {
   const r = 15.915;
   let offset = 0;
@@ -154,9 +154,29 @@ async function load() {
           <td>${esc(e.location)}</td>
           <td class="muted">${fmtDate(e.recorded_at)}</td>
         </tr>`).join("")
-    : `<tr><td colspan="4" class="empty">Belum ada aktivitas tracking.</td></tr>`;
+    : `<tr><td colspan="4" class="empty">Belum ada aktivitas tracking. <a href="/checkpoint" style="color:var(--brand);font-weight:700;margin-left:6px">Catat paket pertama</a></td></tr>`;
 }
 
+function renderQuickActions() {
+  const role = getAuth()?.user?.role;
+  const rows = [];
+  if (["kurir", "operator", "admin", "superadmin"].includes(role)) {
+    rows.push(`<div><span>Catat paket baru atau scan checkpoint</span><a class="btn sm primary" href="/checkpoint">Input Checkpoint</a></div>`);
+  }
+  if (["supervisor", "admin", "superadmin"].includes(role)) {
+    rows.push(`<div><span>Filter, pantau, dan kelola daftar resi</span><a class="btn sm ghost" href="/pengiriman">Daftar Pengiriman</a></div>`);
+  }
+  rows.push(`<div><span>Lihat riwayat perjalanan paket</span><a class="btn sm ghost" href="/lacak">Lacak Pengiriman</a></div>`);
+  if (role === "superadmin") {
+    rows.push(`<div><span>Status snapshot database dan infrastruktur</span><a class="btn sm ghost" href="/backup">Backup dan Pemulihan</a></div>`);
+  }
+  if (!role) {
+    rows.push(`<div><span>Masuk atau daftar sebagai kurir lapangan</span><a class="btn sm primary" href="/login">Masuk / Daftar</a></div>`);
+  }
+  $("quickActions").innerHTML = rows.join("");
+}
+
+renderQuickActions();
 const run = autoRefresh(load, 10000);
 $("refreshBtn").onclick = run;
 </script>

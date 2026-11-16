@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Masuk Pegawai | LacakIn</title>
+<link rel="icon" type="image/svg+xml" href="/static/logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/app.css?v=8">
+<style>
+  body.auth-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 28px 16px;
+    background: radial-gradient(circle at 50% 0%, #e7f1fc 0%, var(--bg) 55%);
+  }
+  .auth-shell {
+    width: 100%;
+    max-width: 420px;
+  }
+  .auth-head {
+    text-align: center;
+    margin-bottom: 22px;
+  }
+  .auth-mark {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 14px;
+    border-radius: 14px;
+    display: block;
+    box-shadow: 0 12px 28px -10px rgba(11, 114, 217, .5);
+  }
+  .auth-head h1 {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -.4px;
+  }
+  .auth-head .page-sub {
+    margin-top: 4px;
+    font-size: 13px;
+  }
+  .auth-card {
+    box-shadow: 0 4px 24px -6px rgba(15, 30, 51, .08);
+  }
+  .auth-switch {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .auth-switch a {
+    color: var(--brand);
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .auth-switch a:hover {
+    text-decoration: underline;
+  }
+  .auth-foot {
+    margin-top: 18px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .auth-foot a {
+    color: var(--brand);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .auth-foot a:hover {
+    text-decoration: underline;
+  }
+</style>
+</head>
+<body class="auth-page">
+  <div class="auth-shell">
+    <div class="auth-head">
+      <img class="auth-mark" src="/static/logo.svg" alt="Logo LacakIn" width="56" height="56">
+      <h1>Portal Pegawai LacakIn</h1>
+      <p class="page-sub">Masuk menggunakan NIP, NIK, atau Username pegawai.</p>
+    </div>
+
+    <div class="card auth-card">
+      <div class="card-b">
+        <form id="loginForm" method="post" onsubmit="return false;" autocomplete="off" novalidate>
+          <div class="field">
+            <label for="lUser">NIP, NIK, atau Username</label>
+            <input id="lUser" name="lacak_ident" placeholder="Contoh: SUP-0001, superadmin, atau 16 digit NIK" required autocomplete="off">
+            <div id="errUser" class="help" style="color:#dc2626;font-weight:600" hidden></div>
+          </div>
+          <div class="field">
+            <label for="lPass">Kata Sandi</label>
+            <div class="pass-wrap">
+              <input id="lPass" name="lacak_pass" type="password" placeholder="Masukkan kata sandi" required autocomplete="new-password">
+              <button type="button" class="btn-toggle-pass" id="btnTogglePass" title="Lihat/Sembunyikan kata sandi"></button>
+            </div>
+            <div id="errPass" class="help" style="color:#dc2626;font-weight:600" hidden></div>
+          </div>
+          <div id="errBoth" style="padding:10px 12px;border-radius:8px;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;font-size:13px;font-weight:600;margin-bottom:12px" hidden></div>
+          <button class="btn block" type="submit" id="lBtn">Masuk ke Sistem</button>
+        </form>
+
+        <div class="auth-switch">
+          Belum punya akun pegawai? <a href="/register">Daftar sekarang</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="auth-foot">
+      <a href="/lacak">Lacak Resi Pelanggan (Publik)</a>
+    </div>
+  </div>
+
+<script src="/static/app.js?v=8"></script>
+<script>
+if (typeof attachPasswordToggle === "function") {
+  attachPasswordToggle("lPass", "btnTogglePass");
+}
+
+$("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const ident = $("lUser").value.trim();
+  const pass = $("lPass").value;
+  $("errUser").hidden = true;
+  $("errPass").hidden = true;
+  $("errBoth").hidden = true;
+  $("lUser").style.borderColor = "";
+  $("lPass").style.borderColor = "";
+
+  if (!ident && !pass) {
+    $("errBoth").textContent = "NIP/NIK/Username dan Kata Sandi wajib diisi.";
+    $("errBoth").hidden = false;
+    $("lUser").style.borderColor = "#dc2626";
+    $("lPass").style.borderColor = "#dc2626";
+    return;
+  }
+  if (!ident) {
+    $("errUser").textContent = "NIP / NIK / Username wajib diisi.";
+    $("errUser").hidden = false;
+    $("lUser").style.borderColor = "#dc2626";
+    return;
+  }
+  if (!pass) {
+    $("errPass").textContent = "Kata sandi wajib diisi.";
+    $("errPass").hidden = false;
+    $("lPass").style.borderColor = "#dc2626";
+    return;
+  }
+
+  const btn = $("lBtn");
+  btn.disabled = true;
+  try {
+    const res = await api("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ identifier: ident, password: pass }),
+    });
+    setAuth(res.access_token, res.user);
+    toast(`Selamat datang, ${res.user.full_name} (${res.user.employee_code})`);
+    setTimeout(() => { location.href = "/"; }, 400);
+  } catch (err) {
+    const msg = err.message || "Gagal masuk";
+    if (msg.includes("keduanya salah")) {
+      $("errBoth").textContent = msg;
+      $("errBoth").hidden = false;
+      $("lUser").style.borderColor = "#dc2626";
+      $("lPass").style.borderColor = "#dc2626";
+    } else if (msg.includes("tidak ditemukan")) {
+      $("errUser").textContent = msg;
+      $("errUser").hidden = false;
+      $("lUser").style.borderColor = "#dc2626";
+    } else if (msg.includes("Kata sandi salah")) {
+      $("errPass").textContent = msg;
+      $("errPass").hidden = false;
+      $("lPass").style.borderColor = "#dc2626";
+    } else {
+      $("errBoth").textContent = msg;
+      $("errBoth").hidden = false;
+    }
+    toast(msg, "err");
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

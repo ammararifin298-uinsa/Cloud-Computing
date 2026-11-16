@@ -4,43 +4,60 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lacak Pengiriman | Dashboard Logistik dan Rantai Pasok</title>
+  <title>Lacak Pengiriman | LacakIn</title>
+  <link rel="icon" type="image/svg+xml" href="/static/logo.svg">
   <meta name="description" content="Lacak riwayat perjalanan paket berdasarkan nomor resi.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
     rel="stylesheet">
-  <link rel="stylesheet" href="/static/app.css">
+  <link rel="stylesheet" href="/static/app.css?v=8">
 </head>
 
 <body>
   <aside class="sidebar" id="sidebar"></aside>
 
   <main>
-    <header class="page-head">
+    <header class="page-head track-head">
       <div>
-        <div class="crumb">Tracking</div>
-        <h1>Lacak Pengiriman</h1>
-        <p class="page-sub">Masukkan nomor resi untuk melihat posisi terkini dan riwayat perjalanan paket.</p>
+        <div class="crumb" id="trackCrumb">Pelacakan</div>
+        <h1>Lacak Status Pengiriman</h1>
+        <p class="page-sub">Ketik atau pilih nomor resi paket untuk memantau pergerakan pengiriman secara akurat dan real-time.</p>
       </div>
     </header>
 
-    <div class="alert" id="dbAlert">Database tidak dapat dijangkau. Pelacakan sementara tidak tersedia.</div>
+    <div class="alert" id="dbAlert">Layanan database sedang tidak dapat dijangkau. Pelacakan sementara tidak tersedia.</div>
 
-    <section class="card">
+    <section class="card track-card">
       <div class="card-b">
-        <form class="toolbar" id="form">
-          <input id="code" list="codes" placeholder="Contoh: LOG-261026-AB12" required>
-          <datalist id="codes"></datalist>
-          <button class="btn" type="submit">Lacak</button>
+        <form class="track-form" id="form" autocomplete="off">
+          <div class="track-input-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input id="code" list="codes" placeholder="Masukkan Nomor Resi (misal: LOG-261026-AB12)" required autocomplete="off" spellcheck="false">
+            <datalist id="codes"></datalist>
+          </div>
+          <button class="btn ghost" type="button" id="scanTrackBtn">Scan Resi</button>
+          <button class="btn primary" type="submit">Lacak Paket</button>
         </form>
+        <div id="scanTrackBox" hidden style="margin-top:12px;padding:14px;border:1px dashed #94a3b8;border-radius:12px;background:#f8fafc;text-align:center">
+          <video id="scanTrackVideo" autoplay playsinline muted style="width:100%;max-width:420px;height:200px;margin:0 auto 10px auto;display:block;border-radius:10px;background:#0f172a;object-fit:cover"></video>
+          <div class="input-row" style="max-width:420px;margin:0 auto">
+            <input id="scanTrackManual" placeholder="Arahkan barcode/QR ke kamera atau tempel kode resi" style="text-align:center">
+            <button type="button" class="btn sm primary" id="applyTrackScan">Lacak</button>
+          </div>
+          <div id="scanTrackQuick" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:10px"></div>
+        </div>
+        <div class="sample-chips" id="sampleChips" hidden></div>
       </div>
     </section>
 
-    <div id="result" style="margin-top:18px"></div>
+    <div id="result" style="margin-top:22px"></div>
   </main>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=8"></script>
   <script>
     async function track(code) {
       const out = $("result");
@@ -61,13 +78,20 @@
       const idx = STATUS_ORDER.indexOf(last.status);
       const c = encodeURIComponent(code);
 
+      const empAuth = getAuth();
+      const canWrite = ["kurir", "operator", "admin", "superadmin"].includes(empAuth?.user?.role);
+
+      let cdnFiles = [];
+      try {
+        const up = await api("/api/uploads");
+        cdnFiles = (up.items || []).filter((x) => x.key.toUpperCase().startsWith(code.toUpperCase() + "_"));
+      } catch {}
+
       out.innerHTML = `
     <div class="card">
       <div class="card-h">
         <h2>Resi <span class="code" style="font-size:14px">${esc(code)}</span></h2>
-        <div>
-          <a class="btn sm ghost" href="/checkpoint?code=${c}">Update Checkpoint</a>
-        </div>
+        ${canWrite ? `<div><a class="btn sm ghost" href="/checkpoint?code=${c}">Update / Upload Bukti</a></div>` : ""}
       </div>
       <div class="card-b">
         <div class="stepper">
@@ -86,7 +110,28 @@
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" style="margin-top:16px">
+      <div class="card-h">
+        <h2>Lampiran Bukti Pengiriman</h2>
+        <span class="hint">${cdnFiles.length} file</span>
+      </div>
+      <div class="card-b">
+        ${cdnFiles.length ? cdnFiles.map((f) => `
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px">
+            <div>
+              <div class="code" style="font-size:13px">${esc(f.key)}</div>
+              <div class="muted" style="font-size:12px">Ukuran: ${(f.size_bytes / 1024).toFixed(1)} KB</div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <a class="btn sm ghost" href="${esc(f.lb_url)}" target="_blank">Lihat Bukti</a>
+              <a class="btn sm primary" href="${esc(f.lb_url)}" download="${esc(f.key)}">Unduh Bukti</a>
+            </div>
+          </div>
+        `).join("") : `<div class="empty">Belum ada foto atau dokumen bukti pengiriman untuk resi ini.</div>`}
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
       <div class="card-h">
         <h2>Riwayat Perjalanan</h2>
         <span class="hint">Terbaru di atas</span>
@@ -110,16 +155,89 @@
       if (code) track(code);
     });
 
-    (async () => {
-      await checkHealth();
-      setInterval(checkHealth, 10000);
+    let trackCamStream = null;
+    function stopTrackCam() {
+      if (trackCamStream) {
+        trackCamStream.getTracks().forEach((t) => t.stop());
+        trackCamStream = null;
+      }
+    }
+
+    $("scanTrackBtn").onclick = async () => {
+      const box = $("scanTrackBox");
+      box.hidden = !box.hidden;
+      if (box.hidden) {
+        stopTrackCam();
+        return;
+      }
+      if (navigator.mediaDevices?.getUserMedia) {
+        try {
+          trackCamStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+          $("scanTrackVideo").srcObject = trackCamStream;
+        } catch {
+          toast("Tidak dapat mengakses kamera, gunakan input kode atau tombol cepat di bawah.", "info");
+        }
+      }
       try {
         const list = await api("/api/shipments");
-        $("codes").innerHTML = list.map((s) => `<option value="${esc(s.code)}">`).join("");
-      } catch { /* datalist opsional */ }
+        $("scanTrackQuick").innerHTML = list.length
+          ? list.slice(0, 6).map((s) => `<button type="button" class="btn sm ghost" data-scan="${esc(s.code)}">Scan: ${esc(s.code)}</button>`).join("")
+          : `<span class="muted">Belum ada resi terdaftar.</span>`;
+        $("scanTrackQuick").onclick = (ev) => {
+          const c = ev.target.dataset?.scan;
+          if (c) {
+            $("code").value = c;
+            stopTrackCam();
+            box.hidden = true;
+            track(c);
+          }
+        };
+      } catch {}
+    };
+
+    $("applyTrackScan").onclick = () => {
+      const val = $("scanTrackManual").value.trim().toUpperCase();
+      if (!val) return;
+      $("code").value = val;
+      stopTrackCam();
+      $("scanTrackBox").hidden = true;
+      track(val);
+    };
+
+    (async () => {
+      const empAuth = getAuth();
+      if (empAuth) {
+        await checkHealth();
+        setInterval(checkHealth, 10000);
+        try {
+          const list = await api("/api/shipments");
+          $("codes").innerHTML = list.map((s) => `<option value="${esc(s.code)}">`).join("");
+          if (list.length) {
+            const box = $("sampleChips");
+            box.hidden = false;
+            box.innerHTML = `<span>Resi terbaru:</span>` + list.slice(0, 5).map((s) =>
+              `<button type="button" class="sample-chip" data-pick="${esc(s.code)}">${esc(s.code)}</button>`
+            ).join("");
+            box.onclick = (ev) => {
+              const pick = ev.target.dataset?.pick;
+              if (pick) { $("code").value = pick; track(pick); }
+            };
+          }
+        } catch { /* datalist opsional */ }
+      }
       const initial = qs("code");
       if (initial) { $("code").value = initial; track(initial); }
-      else $("result").innerHTML = `<div class="card"><div class="empty">Belum ada resi yang dilacak.</div></div>`;
+      else $("result").innerHTML = `
+        <div class="card" style="border:1px dashed #cbd5e1;background:#fafcff">
+          <div class="empty" style="padding:48px 16px">
+            <svg class="ui-ico" viewBox="0 0 24 24" style="width:36px;height:36px;color:#94a3b8;margin-bottom:10px;stroke-width:1.5">
+              <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+              <path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>
+            </svg>
+            <div style="font-weight:700;color:var(--text);font-size:14.5px;margin-bottom:4px">Siap Melacak Pengiriman Anda</div>
+            <div style="font-size:13px;color:var(--muted)">Masukkan nomor resi di atas untuk melihat status perjalanan dan rute pengiriman.</div>
+          </div>
+        </div>`;
     })();
   </script>
 </body>

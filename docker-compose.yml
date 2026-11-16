@@ -1,69 +1,223 @@
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
-  db:
+  db-primary:
     image: postgres:16-alpine
-    container_name: warehouse-db
+    container_name: lacakin-db-primary
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
-      POSTGRES_USER: logistik
-      POSTGRES_PASSWORD: logistik
-      POSTGRES_DB: logistik
+      POSTGRES_USER: ${POSTGRES_USER:-logistik}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-logistik_dr_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-logistik}
+      REPLICATOR_PASSWORD: ${REPLICATOR_PASSWORD:-repl_dr_pass}
     volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - pgdata_primary:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./db/init-primary.sh:/docker-entrypoint-initdb.d/02-replication.sh:ro
+    networks:
+      - backend_net
+    cpus: 1.0
+    mem_limit: 512m
+    logging: *default-logging
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U logistik"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-logistik} -d ${POSTGRES_DB:-logistik}"]
       interval: 5s
+      timeout: 3s
       retries: 10
 
-  # Load balancer: satu pintu masuk (port 8000), membagi trafik ke semua replika api.
-  lb:
-    image: nginx:1.27-alpine
-    container_name: logistik-lb
+  db-standby:
+    image: postgres:16-alpine
+    container_name: lacakin-db-standby
     restart: unless-stopped
-    volumes:
-      - ./loadtest/nginx.conf:/etc/nginx/nginx.conf:ro
-    ports:
-      - "8000:80"
-    depends_on:
-      - api
-
-  # Tanpa container_name & tanpa port host agar bisa di-scale:
-  #   docker compose up -d --scale api=3   (atau otomatis via autoscaler)
-  api:
-    build: ./api
-    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
-      DATABASE_URL: postgresql://logistik:logistik@db:5432/logistik
+      POSTGRES_USER: ${POSTGRES_USER:-logistik}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-logistik_dr_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-logistik}
+      REPLICATOR_PASSWORD: ${REPLICATOR_PASSWORD:-repl_dr_pass}
+    volumes:
+      - pgdata_standby:/var/lib/postgresql/data
+      - ./db/standby-entrypoint.sh:/standby-entrypoint.sh:ro
+    entrypoint: ["sh", "/standby-entrypoint.sh"]
+    depends_on:
+      db-primary:
+        condition: service_healthy
+    networks:
+      - backend_net
+    cpus: 1.0
+    mem_limit: 512m
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-logistik} -d ${POSTGRES_DB:-logistik}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+
+  api-1:
+    build: ./api
+    container_name: lacakin-api-1
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      APP_NODE: api-1
+      DATABASE_URL: postgresql://${POSTGRES_USER:-logistik}:${POSTGRES_PASSWORD:-logistik_dr_pass}@db-primary:5432,db-standby:5432/${POSTGRES_DB:-logistik}?target_session_attrs=read-write
       BACKUP_DIR: /backups
-      BACKUP_INTERVAL: 900
+      BACKUP_INTERVAL: ${BACKUP_INTERVAL:-900}
+      JWT_SECRET: ${JWT_SECRET:-lacakin-prod-jwt-secret-2026-change-me}
+      JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-43200}
+      S3_BUCKET: ${S3_BUCKET:-lacakin-backups}
+      SERVE_STATIC: "0"
+      UPLOADS_DIR: /cdn-uploads
+      CDN_PUBLIC_URL: ${CDN_PUBLIC_URL:-http://localhost:8080}
     volumes:
       - ./backups:/backups:ro
+      - cdn_uploads:/cdn-uploads
     expose:
       - "8000"
     depends_on:
-      db:
+      db-primary:
         condition: service_healthy
+    networks:
+      - backend_net
+    cpus: 0.75
+    mem_limit: 384m
+    logging: *default-logging
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
-      interval: 15s
+      interval: 10s
       timeout: 5s
       retries: 3
       start_period: 10s
 
-  backup:
-    image: postgres:16-alpine
-    container_name: logistik-backup
+  api-2:
+    build: ./api
+    container_name: lacakin-api-2
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
-      PGPASSWORD: logistik
-      BACKUP_INTERVAL: 900
+      APP_NODE: api-2
+      DATABASE_URL: postgresql://${POSTGRES_USER:-logistik}:${POSTGRES_PASSWORD:-logistik_dr_pass}@db-primary:5432,db-standby:5432/${POSTGRES_DB:-logistik}?target_session_attrs=read-write
+      BACKUP_DIR: /backups
+      BACKUP_INTERVAL: ${BACKUP_INTERVAL:-900}
+      JWT_SECRET: ${JWT_SECRET:-lacakin-prod-jwt-secret-2026-change-me}
+      JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-43200}
+      S3_BUCKET: ${S3_BUCKET:-lacakin-backups}
+      SERVE_STATIC: "0"
+      UPLOADS_DIR: /cdn-uploads
+      CDN_PUBLIC_URL: ${CDN_PUBLIC_URL:-http://localhost:8080}
+    volumes:
+      - ./backups:/backups:ro
+      - cdn_uploads:/cdn-uploads
+    expose:
+      - "8000"
+    depends_on:
+      db-primary:
+        condition: service_healthy
+    networks:
+      - backend_net
+    cpus: 0.75
+    mem_limit: 384m
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  lb-1:
+    image: nginx:1.27-alpine
+    container_name: lacakin-lb-1
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8000:80"
+    depends_on:
+      api-1:
+        condition: service_healthy
+      api-2:
+        condition: service_healthy
+      cdn:
+        condition: service_healthy
+    networks:
+      frontend_net:
+      backend_net:
+        aliases:
+          - lb
+    cpus: 0.5
+    mem_limit: 128m
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  lb-2:
+    image: nginx:1.27-alpine
+    container_name: lacakin-lb-2
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8001:80"
+    depends_on:
+      api-1:
+        condition: service_healthy
+      api-2:
+        condition: service_healthy
+      cdn:
+        condition: service_healthy
+    networks:
+      frontend_net:
+      backend_net:
+    cpus: 0.5
+    mem_limit: 128m
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  backup:
+    build: ./backup
+    container_name: lacakin-backup
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-logistik}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-logistik_dr_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-logistik}
+      BACKUP_INTERVAL: ${BACKUP_INTERVAL:-900}
     volumes:
       - ./backup/backup.sh:/backup.sh:ro
       - ./backups:/backups
     entrypoint: ["sh", "/backup.sh"]
     depends_on:
-      db:
+      db-primary:
         condition: service_healthy
+    networks:
+      - backend_net
+    cpus: 0.5
+    mem_limit: 256m
+    logging: *default-logging
     healthcheck:
       test: ["CMD-SHELL", "find /backups -name 'logistik_*.dump' -mmin -30 | grep -q ."]
       interval: 60s
@@ -71,5 +225,38 @@ services:
       retries: 2
       start_period: 90s
 
+  cdn:
+    image: nginx:1.27-alpine
+    container_name: lacakin-cdn
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./nginx/cdn.conf:/etc/nginx/nginx.conf:ro
+      - ./api/static:/usr/share/nginx/html:ro
+      - cdn_uploads:/usr/share/nginx/uploads:ro
+    ports:
+      - "8080:80"
+    networks:
+      - frontend_net
+      - backend_net
+    cpus: 0.75
+    mem_limit: 256m
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/cdn-health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+networks:
+  frontend_net:
+    driver: bridge
+  backend_net:
+    driver: bridge
+    internal: true
+
 volumes:
-  pgdata:
+  pgdata_primary:
+  pgdata_standby:
+  cdn_uploads:

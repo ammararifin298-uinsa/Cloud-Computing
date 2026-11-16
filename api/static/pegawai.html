@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manajemen Pegawai | LacakIn</title>
+<link rel="icon" type="image/svg+xml" href="/static/logo.svg">
+<meta name="description" content="Kelola status aktif pegawai, jabatan, penempatan, dan kontrol fitur sistem.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/app.css?v=8">
+</head>
+<body>
+<aside class="sidebar" id="sidebar"></aside>
+
+<main>
+  <header class="page-head">
+    <div>
+      <div class="crumb">Administrasi</div>
+      <h1>Manajemen Pegawai dan Fitur</h1>
+      <p class="page-sub">Aktifkan atau nonaktifkan akun pegawai, atur jabatan serta penempatan, dan kelola fitur operasional.</p>
+    </div>
+    <div class="head-actions">
+      <span class="updated" id="updated">-</span>
+      <button class="btn ghost" id="refreshBtn" type="button">Segarkan</button>
+    </div>
+  </header>
+
+  <div class="alert" id="dbAlert">Database tidak dapat dijangkau. Data pegawai sementara tidak dapat dimuat.</div>
+
+  <section class="kpis">
+    <div class="kpi" style="--accent: var(--brand)">
+      <div class="label">Total Pegawai</div>
+      <div class="value num" id="kTotal">0</div>
+      <div class="foot">Seluruh akun terdaftar</div>
+    </div>
+    <div class="kpi" style="--accent: var(--c-selesai)">
+      <div class="label">Pegawai Aktif</div>
+      <div class="value num" id="kActive">0</div>
+      <div class="foot">Dapat masuk dan beroperasi</div>
+    </div>
+    <div class="kpi" style="--accent: var(--c-danger)">
+      <div class="label">Pegawai Nonaktif</div>
+      <div class="value num" id="kInactive">0</div>
+      <div class="foot">Akses login diblokir</div>
+    </div>
+    <div class="kpi" style="--accent: var(--c-perjalanan)">
+      <div class="label">Peran Anda</div>
+      <div class="value" id="kMyRole" style="font-size:22px">-</div>
+      <div class="foot" id="kMyScope">-</div>
+    </div>
+  </section>
+
+  <section class="card" id="featureCard" hidden style="margin-bottom:18px">
+    <div class="card-h">
+      <h2>Kontrol Fitur Sistem</h2>
+      <span class="hint">Khusus Superadmin - berlaku langsung ke seluruh node API</span>
+    </div>
+    <div class="card-b">
+      <div class="feature-list" id="featureList">
+        <div class="empty">Memuat pengaturan fitur</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-h">
+      <div class="toolbar" style="flex:1">
+        <input id="search" name="pegawai_search" type="search" placeholder="Cari NIP, nama, username, atau penempatan" autocomplete="off" spellcheck="false">
+        <select id="filterRole" autocomplete="off">
+          <option value="">Semua jabatan</option>
+          <option value="superadmin">Superadmin</option>
+          <option value="admin">Admin</option>
+          <option value="supervisor">Supervisor</option>
+          <option value="operator">Operator Gudang</option>
+          <option value="kurir">Kurir</option>
+        </select>
+        <select id="filterStatus" style="width:160px">
+          <option value="">Semua status</option>
+          <option value="active">Aktif</option>
+          <option value="inactive">Nonaktif</option>
+        </select>
+      </div>
+      <span class="hint" id="count">0 pegawai</span>
+    </div>
+    <div class="card-b flush table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>NIP</th>
+            <th>Nama Pegawai</th>
+            <th>Jabatan</th>
+            <th>Penempatan</th>
+            <th>Status</th>
+            <th class="right">Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="rows"><tr><td colspan="6" class="empty">Memuat data pegawai</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<div class="modal-backdrop" id="editModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3>Ubah Data Pegawai</h3>
+    <p id="editSub" style="margin-bottom:14px">-</p>
+    <div class="field">
+      <label for="editRole">Jabatan / Role</label>
+      <select id="editRole"></select>
+    </div>
+    <div class="field" style="margin-bottom:0">
+      <label for="editStation">Unit / Lokasi Penempatan</label>
+      <select id="editStation"></select>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn ghost" id="editCancel">Batal</button>
+      <button type="button" class="btn" id="editSave">Simpan Perubahan</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js?v=8"></script>
+<script>
+const empAuth = requireEmployeeAuth();
+const myRole = empAuth?.user?.role;
+if (empAuth && !["admin", "superadmin"].includes(myRole)) {
+  location.replace("/");
+}
+
+const myId = Number(empAuth?.user?.id);
+let users = [];
+let editingId = null;
+
+$("kMyRole").textContent = ROLE_LABELS[myRole] || myRole || "-";
+$("kMyScope").textContent = myRole === "superadmin"
+  ? "Kelola pegawai dan fitur sistem"
+  : "Kelola akun operasional";
+
+if (myRole === "superadmin") {
+  $("featureCard").hidden = false;
+}
+
+$("editStation").innerHTML = LOCATIONS
+  .filter((g) => g.group !== "Last-Mile")
+  .map((g) => `<optgroup label="${esc(g.group)}">${g.items.map((i) => `<option>${esc(i)}</option>`).join("")}</optgroup>`)
+  .join("") + `<option>Hub Kurir Last-Mile</option><option>Pusat Infrastruktur DC</option>`;
+
+function fillRoleSelect(currentRole) {
+  const roles = myRole === "superadmin"
+    ? ["kurir", "operator", "supervisor", "admin", "superadmin"]
+    : ["kurir", "operator", "supervisor", "admin"];
+  $("editRole").innerHTML = roles.map((r) => `<option value="${r}">${esc(ROLE_LABELS[r] || r)}</option>`).join("");
+  $("editRole").value = currentRole;
+}
+
+function renderUsers() {
+  const q = $("search").value.trim().toLowerCase();
+  const fr = $("filterRole").value;
+  const fs = $("filterStatus").value;
+
+  const list = users.filter((u) => {
+    const matchRole = !fr || u.role === fr;
+    const matchStatus = !fs || (fs === "active" ? u.is_active : !u.is_active);
+    const matchQ = !q ||
+      (u.employee_code || "").toLowerCase().includes(q) ||
+      (u.full_name || "").toLowerCase().includes(q) ||
+      (u.username || "").toLowerCase().includes(q) ||
+      (u.station || "").toLowerCase().includes(q);
+    return matchRole && matchStatus && matchQ;
+  });
+
+  const activeCount = users.filter((u) => u.is_active).length;
+  $("kTotal").textContent = users.length;
+  $("kActive").textContent = activeCount;
+  $("kInactive").textContent = users.length - activeCount;
+  $("count").textContent = `${list.length} dari ${users.length} pegawai`;
+
+  if (!list.length) {
+    $("rows").innerHTML = `<tr><td colspan="6" class="empty">Tidak ada pegawai yang cocok dengan filter.</td></tr>`;
+    return;
+  }
+
+  $("rows").innerHTML = list.map((u) => {
+    const isSelf = Number(u.id) === myId;
+    const locked = myRole === "admin" && u.role === "superadmin";
+    const statusBadge = u.is_active
+      ? `<span class="badge s-AKTIF">Aktif</span>`
+      : `<span class="badge s-NONAKTIF">Nonaktif</span>`;
+
+    return `
+      <tr>
+        <td><span class="code">${esc(u.employee_code)}</span></td>
+        <td>
+          <div style="font-weight:700">${esc(u.full_name)}${isSelf ? ' <span class="muted" style="font-weight:600;font-size:11px">(Anda)</span>' : ""}</div>
+          <div class="muted" style="font-size:11.5px">${esc(u.username)}${u.email ? ` - ${esc(u.email)}` : ""}</div>
+        </td>
+        <td><span class="u-role" style="display:inline-block;font-size:10.5px;font-weight:700;text-transform:uppercase;color:var(--brand);background:var(--brand-soft);padding:2px 8px;border-radius:5px">${esc(ROLE_LABELS[u.role] || u.role)}</span></td>
+        <td>${esc(u.station || "-")}</td>
+        <td>${statusBadge}</td>
+        <td class="actions">
+          ${locked ? `<span class="muted" style="font-size:12px">Dilindungi</span>` : `
+            <button class="btn sm ghost" type="button" data-edit="${u.id}">Ubah</button>
+            ${isSelf ? "" : `<button class="btn sm ${u.is_active ? "danger-ghost" : "ghost"}" type="button" data-toggle="${u.id}">${u.is_active ? "Nonaktifkan" : "Aktifkan"}</button>`}
+          `}
+        </td>
+      </tr>`;
+  }).join("");
+}
+
+async function loadUsers() {
+  users = await api("/api/users");
+  renderUsers();
+}
+
+async function loadSettings() {
+  if (myRole !== "superadmin") return;
+  const list = await api("/api/settings");
+  $("featureList").innerHTML = list.map((s) => `
+    <div class="feature-item">
+      <div>
+        <div class="f-title">${esc(s.label)}</div>
+        <div class="f-desc">${esc(s.description)}</div>
+      </div>
+      <label class="switch" title="${s.enabled ? "Nonaktifkan" : "Aktifkan"} ${esc(s.label)}">
+        <input type="checkbox" data-setting="${esc(s.key)}" ${s.enabled ? "checked" : ""}>
+        <span class="slider"></span>
+      </label>
+    </div>
+  `).join("");
+}
+
+$("featureList").addEventListener("change", async (e) => {
+  const key = e.target.dataset?.setting;
+  if (!key) return;
+  const input = e.target;
+  const enabled = input.checked;
+  input.disabled = true;
+  try {
+    const res = await api(`/api/settings/${encodeURIComponent(key)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ enabled }),
+    });
+    toast(`${res.label} ${res.enabled ? "diaktifkan" : "dinonaktifkan"}.`);
+  } catch (err) {
+    input.checked = !enabled;
+    toast(`Gagal mengubah fitur: ${err.message}`, "err");
+  } finally {
+    input.disabled = false;
+  }
+});
+
+$("rows").addEventListener("click", async (e) => {
+  const toggleId = e.target.dataset?.toggle;
+  if (toggleId) {
+    const u = users.find((x) => String(x.id) === toggleId);
+    if (!u) return;
+    const nextActive = !u.is_active;
+    const ok = await confirmDialog({
+      title: nextActive ? "Aktifkan akun pegawai?" : "Nonaktifkan akun pegawai?",
+      message: nextActive
+        ? `Akun <b>${esc(u.full_name)}</b> (${esc(u.employee_code)}) akan dapat login kembali.`
+        : `Akun <b>${esc(u.full_name)}</b> (${esc(u.employee_code)}) tidak akan dapat login maupun mengakses API sampai diaktifkan kembali.`,
+      confirmText: nextActive ? "Aktifkan" : "Nonaktifkan",
+      danger: !nextActive,
+    });
+    if (!ok) return;
+    try {
+      await api(`/api/users/${u.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_active: nextActive }),
+      });
+      toast(`${u.full_name} ${nextActive ? "diaktifkan" : "dinonaktifkan"}.`);
+      await loadUsers();
+    } catch (err) {
+      toast(`Gagal memperbarui status: ${err.message}`, "err");
+    }
+    return;
+  }
+
+  const editId = e.target.dataset?.edit;
+  if (editId) {
+    const u = users.find((x) => String(x.id) === editId);
+    if (!u) return;
+    editingId = u.id;
+    $("editSub").textContent = `${u.full_name} (${u.employee_code})`;
+    fillRoleSelect(u.role);
+    if (u.station && ![...$("editStation").options].some((o) => o.value === u.station)) {
+      const opt = document.createElement("option");
+      opt.value = u.station;
+      opt.textContent = u.station;
+      $("editStation").appendChild(opt);
+    }
+    $("editStation").value = u.station || "Hub Kurir Last-Mile";
+    $("editModal").hidden = false;
+  }
+});
+
+$("editCancel").onclick = () => { $("editModal").hidden = true; editingId = null; };
+$("editModal").addEventListener("click", (e) => {
+  if (e.target === $("editModal")) { $("editModal").hidden = true; editingId = null; }
+});
+
+$("editSave").onclick = async () => {
+  if (!editingId) return;
+  const btn = $("editSave");
+  btn.disabled = true;
+  try {
+    const updated = await api(`/api/users/${editingId}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        role: $("editRole").value,
+        station: $("editStation").value,
+      }),
+    });
+    toast(`Data ${updated.full_name} diperbarui.`);
+    $("editModal").hidden = true;
+    editingId = null;
+    await loadUsers();
+  } catch (err) {
+    toast(`Gagal menyimpan: ${err.message}`, "err");
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+$("search").addEventListener("input", renderUsers);
+$("filterRole").addEventListener("change", renderUsers);
+$("filterStatus").addEventListener("change", renderUsers);
+
+async function runAll() {
+  const ok = await checkHealth();
+  if (ok) {
+    try { await Promise.all([loadUsers(), loadSettings()]); } catch (e) { console.error(e); }
+  }
+  $("updated").textContent = `Diperbarui ${new Date().toLocaleTimeString("id-ID")}`;
+}
+runAll();
+setInterval(runAll, 15000);
+$("refreshBtn").onclick = runAll;
+</script>
+</body>
+</html>
+

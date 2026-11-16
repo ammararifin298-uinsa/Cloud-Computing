@@ -1,6 +1,25 @@
+# Database backups & local dumps
 backups/
-__pycache__/
-*.pyc
-.env
+*.dump
+*.dump.sha256
+*.part
 
+# Environment secrets (keep .env.example tracked)
+.env
+.env.local
+
+# Python cache & virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Raw k6 loadtest time-series CSVs (keep summary JSON, HTML reports, and autoscale.csv)
 loadtest/results/*-raw.csv
+
+# Local cover assets & OS/editor files
+docs/logo_uinsa/
+.DS_Store
+Thumbs.db
+*.tmp
+*.log

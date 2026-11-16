@@ -3,12 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Catat Checkpoint | Dashboard Logistik dan Rantai Pasok</title>
+<title>Catat Checkpoint | LacakIn</title>
+<link rel="icon" type="image/svg+xml" href="/static/logo.svg">
 <meta name="description" content="Catat pengiriman baru atau perbarui posisi pengiriman yang sedang berjalan.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="/static/app.css?v=8">
 </head>
 <body>
 <aside class="sidebar" id="sidebar"></aside>
@@ -32,8 +33,8 @@
       </div>
       <div class="card-b">
         <div class="segmented" role="tablist">
-          <button type="button" id="modeNew" class="active">Pengiriman Baru</button>
-          <button type="button" id="modeUpdate">Update Pengiriman</button>
+          <button type="button" id="modeNew" class="active">+ Pengiriman Baru</button>
+          <button type="button" id="modeUpdate">&#8635; Update Pengiriman</button>
         </div>
 
         <form id="form" autocomplete="off" novalidate>
@@ -47,9 +48,18 @@
           </div>
 
           <div class="field" id="updateWrap" hidden>
-            <label for="existing">Pilih Pengiriman</label>
+            <label for="existing">Pilih atau Scan Pengiriman</label>
             <select id="existing"></select>
-            <div class="help" id="existingInfo">Pilih paket yang sudah terdaftar.</div>
+            <button type="button" class="btn block" id="scanBtn" style="margin-top:10px;justify-content:center">Scan Barcode / QR Resi</button>
+            <div id="scanBox" hidden style="margin-top:10px;padding:14px;border:1px dashed #94a3b8;border-radius:12px;background:#f8fafc;text-align:center">
+              <video id="scanVideo" autoplay playsinline muted style="width:100%;max-width:420px;height:190px;margin:0 auto 10px auto;display:block;border-radius:10px;background:#0f172a;object-fit:cover" hidden></video>
+              <div class="input-row" style="max-width:420px;margin:0 auto">
+                <input id="scanManual" placeholder="Tempel hasil scan barcode/QR atau pilih di bawah" style="text-align:center">
+                <button type="button" class="btn sm" id="applyScan">Pakai</button>
+              </div>
+              <div id="scanQuick" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:10px"></div>
+            </div>
+            <div class="help" id="existingInfo" style="margin-top:6px">Pilih paket yang sudah terdaftar atau gunakan tombol Scan Resi di atas.</div>
           </div>
 
           <div class="field">
@@ -63,12 +73,64 @@
             <input id="locationOther" placeholder="Tulis nama fasilitas atau alamat" maxlength="100" style="margin-top:8px" hidden>
           </div>
 
+          <div class="field">
+            <label>Bukti Foto Pengiriman <span style="color:#dc2626">*Wajib</span></label>
+            <input type="file" id="proofFile" accept="image/*,.svg,.pdf" hidden>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <button type="button" class="btn block ghost" id="pickFileBtn" style="justify-content:center">Pilih File Foto</button>
+              <button type="button" class="btn block" id="camPhotoBtn" style="justify-content:center">Ambil dari Kamera</button>
+            </div>
+            <div id="photoCamBox" hidden style="margin-top:10px;padding:14px;border:1px dashed #94a3b8;border-radius:12px;background:#f8fafc;text-align:center">
+              <video id="photoVideo" autoplay playsinline muted style="width:100%;max-width:420px;height:200px;margin:0 auto 10px auto;display:block;border-radius:10px;background:#0f172a;object-fit:cover"></video>
+              <canvas id="photoCanvas" width="640" height="360" hidden></canvas>
+              <button type="button" class="btn block" id="captureNowBtn" style="max-width:420px;margin:0 auto;justify-content:center">Jepret Foto Bukti</button>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px">
+              <div id="proofStatus" class="help" style="font-weight:600;color:#475569;margin:0">Belum ada bukti foto yang dipilih.</div>
+              <button type="button" class="btn sm danger-ghost" id="clearProofBtn" hidden>Hapus Foto</button>
+            </div>
+          </div>
+
           <button class="btn block" type="submit" id="submitBtn">Simpan Checkpoint</button>
         </form>
       </div>
     </div>
 
     <div class="stack">
+      <div class="card">
+        <div class="card-h">
+          <h2>Paket Tugas Pengiriman Aktif</h2>
+          <span class="hint" id="assignedCount">0 paket</span>
+        </div>
+        <div class="card-b flush table-wrap">
+          <table>
+            <thead><tr><th>Kode Resi</th><th>Status</th><th>Lokasi</th><th>Aksi</th></tr></thead>
+            <tbody id="assignedList"><tr><td colspan="4" class="empty">Memuat daftar paket tugas...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" id="reportCard">
+        <div class="card-h">
+          <h2>Laporan Operasional</h2>
+          <span class="hint">Harian, Mingguan, Bulanan</span>
+        </div>
+        <div class="card-b">
+          <div class="field" style="margin-bottom:10px">
+            <label for="repPeriod">Periode Laporan</label>
+            <select id="repPeriod">
+              <option value="daily">Laporan Harian (Hari Ini)</option>
+              <option value="weekly">Laporan Mingguan (7 Hari Terakhir)</option>
+              <option value="monthly">Laporan Bulanan (Bulan Ini)</option>
+            </select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <button type="button" class="btn block ghost" id="btnExportExcel" style="justify-content:center">Download Excel</button>
+            <button type="button" class="btn block" id="btnExportPdf" style="justify-content:center">Cetak PDF</button>
+          </div>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-h"><h2>Alur Status Pengiriman</h2></div>
         <div class="card-b">
@@ -88,19 +150,41 @@
           </table>
         </div>
       </div>
+
+      <div class="card">
+        <div class="card-h">
+          <h2>Lampiran Bukti Pengiriman</h2>
+          <span class="hint" id="cdnCount">0 file</span>
+        </div>
+        <div class="card-b flush table-wrap">
+          <table>
+            <thead><tr><th>Nama File</th><th>Ukuran</th><th>Aksi</th></tr></thead>
+            <tbody id="cdnList"><tr><td colspan="3" class="empty">Memuat daftar lampiran...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </section>
 </main>
 
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v=8"></script>
 <script>
+const auth = requireEmployeeAuth();
+if (auth?.user?.role === "supervisor") location.replace("/");
+if (auth?.user?.role === "kurir") {
+  document.querySelectorAll("#reportCard").forEach((el) => el.remove());
+}
 let mode = "new";
 let shipments = [];
 const sessionLog = [];
 
 /* ---------- Isi pilihan statis ---------- */
 
-$("status").innerHTML = STATUS_ORDER
+const allowedStatuses = auth?.user?.role === "kurir"
+  ? ["DALAM_PERJALANAN", "DIKIRIM", "SELESAI"]
+  : STATUS_ORDER;
+
+$("status").innerHTML = allowedStatuses
   .map((k) => `<option value="${k}">${STATUS[k].label}: ${STATUS[k].desc}</option>`).join("");
 
 $("location").innerHTML = LOCATIONS
@@ -121,7 +205,31 @@ async function loadShipments() {
     : `<option value="">Belum ada pengiriman terdaftar</option>`;
   if (prev && shipments.some((s) => s.code === prev)) sel.value = prev;
   if (mode === "update") onSelectExisting();
+  renderAssignedTasks();
 }
+
+function renderAssignedTasks() {
+  const active = shipments.filter((s) => s.current_status !== "SELESAI");
+  $("assignedCount").textContent = `${active.length} paket aktif`;
+  $("assignedList").innerHTML = active.length
+    ? active.map((s) => `
+      <tr>
+        <td><a class="code" href="/lacak?code=${encodeURIComponent(s.code)}">${esc(s.code)}</a></td>
+        <td>${badge(s.current_status)}</td>
+        <td class="muted" style="font-size:12px">${esc(s.current_location)}</td>
+        <td><button type="button" class="btn sm" data-assign="${esc(s.code)}">Pilih</button></td>
+      </tr>`).join("")
+    : `<tr><td colspan="4" class="empty">Semua paket tugas telah selesai diantar.</td></tr>`;
+}
+
+$("assignedList").addEventListener("click", (e) => {
+  const code = e.target.dataset?.assign;
+  if (!code) return;
+  setMode("update");
+  $("existing").value = code;
+  onSelectExisting();
+  toast(`Paket tugas ${code} dipilih untuk diupdate.`);
+});
 
 function onSelectExisting() {
   const s = shipments.find((x) => x.code === $("existing").value);
@@ -142,7 +250,7 @@ function setMode(m) {
   $("updateWrap").hidden = m !== "update";
   if (m === "new") {
     $("resi").value = generateResi(shipments.map((s) => s.code));
-    $("status").value = "DITERIMA";
+    $("status").value = allowedStatuses[0];
   } else {
     onSelectExisting();
   }
@@ -159,15 +267,101 @@ $("location").onchange = () => {
   if (other) $("locationOther").focus();
 };
 
+/* ---------- Upload Bukti & Kamera ---------- */
+let capturedProof = null;
+let photoStream = null;
+
+$("pickFileBtn").onclick = () => $("proofFile").click();
+$("proofFile").onchange = () => {
+  const f = $("proofFile").files?.[0];
+  if (f) {
+    capturedProof = null;
+    $("proofStatus").textContent = `Bukti siap diunggah: ${f.name} (${(f.size / 1024).toFixed(1)} KB)`;
+    $("proofStatus").style.color = "#16a34a";
+    $("clearProofBtn").hidden = false;
+  }
+};
+
+$("clearProofBtn").onclick = () => {
+  capturedProof = null;
+  $("proofFile").value = "";
+  $("proofStatus").textContent = "Belum ada bukti foto yang dipilih.";
+  $("proofStatus").style.color = "#475569";
+  $("clearProofBtn").hidden = true;
+  toast("Pilihan foto bukti dihapus.");
+};
+
+$("camPhotoBtn").onclick = async () => {
+  const box = $("photoCamBox");
+  box.hidden = !box.hidden;
+  if (box.hidden) {
+    if (photoStream) { photoStream.getTracks().forEach((t) => t.stop()); photoStream = null; }
+    return;
+  }
+  if (navigator.mediaDevices?.getUserMedia) {
+    try {
+      photoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      $("photoVideo").srcObject = photoStream;
+    } catch {
+      toast("Kamera langsung tidak terdeteksi, klik Jepret Foto Bukti untuk membuat tangkapan bukti.", "info");
+    }
+  }
+};
+
+$("captureNowBtn").onclick = () => {
+  const code = mode === "new" ? $("resi").value : $("existing").value;
+  const cvs = $("photoCanvas");
+  const ctx = cvs.getContext("2d");
+  const vid = $("photoVideo");
+  if (photoStream && vid.videoWidth > 0) {
+    cvs.width = vid.videoWidth;
+    cvs.height = vid.videoHeight;
+    ctx.drawImage(vid, 0, 0, cvs.width, cvs.height);
+  } else {
+    cvs.width = 640;
+    cvs.height = 360;
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(0, 0, 640, 360);
+    ctx.fillStyle = "#38bdf8";
+    ctx.font = "bold 22px sans-serif";
+    ctx.fillText(`BUKTI FOTO PENGIRIMAN - ${code || "RESI"}`, 32, 140);
+    ctx.fillStyle = "#e2e8f0";
+    ctx.font = "16px sans-serif";
+    ctx.fillText(`Status: ${$("status").value} | Lokasi: ${$("location").value}`, 32, 185);
+    ctx.fillText(`Waktu: ${new Date().toLocaleString("id-ID")}`, 32, 220);
+  }
+  const dataUrl = cvs.toDataURL("image/png");
+  capturedProof = {
+    filename: `kamera-${Date.now()}.png`,
+    content_type: "image/png",
+    content_base64: dataUrl.split(",")[1],
+  };
+  $("proofFile").value = "";
+  if (photoStream) { photoStream.getTracks().forEach((t) => t.stop()); photoStream = null; }
+  $("photoCamBox").hidden = true;
+  $("proofStatus").textContent = `Foto kamera siap diunggah: ${capturedProof.filename}`;
+  $("proofStatus").style.color = "#16a34a";
+  $("clearProofBtn").hidden = false;
+  toast("Foto bukti berhasil diambil dari kamera.");
+};
+
+if ($("btnExportExcel")) $("btnExportExcel").onclick = () => exportOperationalReport($("repPeriod").value, "excel");
+if ($("btnExportPdf")) $("btnExportPdf").onclick = () => exportOperationalReport($("repPeriod").value, "pdf");
+
 /* ---------- Submit ---------- */
 
 $("form").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const code = mode === "new" ? $("resi").value : $("existing").value;
   const location = $("location").value === "__other" ? $("locationOther").value.trim() : $("location").value;
+  const fileInput = $("proofFile");
+  const hasFile = fileInput?.files?.length > 0;
 
   if (!code) return toast("Pilih atau buat nomor resi terlebih dahulu.", "err");
   if (location.length < 2) return toast("Lokasi checkpoint wajib diisi.", "err");
+  if (!hasFile && !capturedProof) {
+    return toast("Bukti foto pengiriman wajib dilampirkan (pilih file atau ambil dari kamera).", "err");
+  }
 
   const btn = $("submitBtn");
   btn.disabled = true;
@@ -177,9 +371,43 @@ $("form").addEventListener("submit", async (ev) => {
       method: "POST",
       body: JSON.stringify({ shipment_code: code, status, location }),
     });
+    if (capturedProof) {
+      await api("/api/uploads", {
+        method: "POST",
+        body: JSON.stringify({
+          shipment_code: code,
+          filename: capturedProof.filename,
+          content_type: capturedProof.content_type,
+          content_base64: capturedProof.content_base64,
+        }),
+      });
+      capturedProof = null;
+    } else if (hasFile) {
+      const f = fileInput.files[0];
+      const b64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+        reader.onerror = reject;
+        reader.readAsDataURL(f);
+      });
+      await api("/api/uploads", {
+        method: "POST",
+        body: JSON.stringify({
+          shipment_code: code,
+          filename: f.name,
+          content_type: f.type || "application/octet-stream",
+          content_base64: b64,
+        }),
+      });
+      fileInput.value = "";
+    }
+    $("proofStatus").textContent = "Belum ada bukti foto yang dipilih.";
+    $("proofStatus").style.color = "#475569";
+    $("clearProofBtn").hidden = true;
+    await loadCdnAssets();
     sessionLog.unshift({ code, status, at: res.recorded_at });
     renderSession();
-    toast(`Checkpoint ${code} tersimpan.`);
+    toast(`Checkpoint ${code} dan bukti foto tersimpan.`);
     await loadShipments();
     if (mode === "new") {
       $("resi").value = generateResi(shipments.map((s) => s.code));
@@ -204,12 +432,89 @@ function renderSession() {
     </tr>`).join("");
 }
 
+async function loadCdnAssets() {
+  try {
+    const data = await api("/api/uploads");
+    const items = (data.items || []).filter((it) => !it.key.startsWith("avatar_"));
+    const canDeleteProof = ["admin", "superadmin"].includes(auth?.user?.role);
+    $("cdnCount").textContent = `${items.length} file`;
+    $("cdnList").innerHTML = items.length
+      ? items.map((it) => `
+        <tr>
+          <td><span class="code" style="font-size:12px">${esc(it.key)}</span></td>
+          <td class="muted">${(it.size_bytes / 1024).toFixed(1)} KB</td>
+          <td style="display:flex;gap:6px">
+            <a class="btn sm ghost" href="${esc(it.lb_url)}" target="_blank">Lihat</a>
+            <a class="btn sm" href="${esc(it.lb_url)}" download="${esc(it.key)}">Unduh</a>
+            ${canDeleteProof ? `<button type="button" class="btn sm danger-ghost" data-del-proof="${esc(it.key)}">Hapus</button>` : ""}
+          </td>
+        </tr>`).join("")
+      : `<tr><td colspan="3" class="empty">Belum ada lampiran bukti pengiriman.</td></tr>`;
+  } catch {
+    $("cdnList").innerHTML = `<tr><td colspan="3" class="empty">Gagal memuat daftar lampiran.</td></tr>`;
+  }
+}
+
+$("cdnList").addEventListener("click", async (e) => {
+  const key = e.target.dataset?.delProof;
+  if (!key) return;
+  try {
+    await api(`/api/uploads/${encodeURIComponent(key)}`, { method: "DELETE" });
+    toast(`Foto bukti ${key} dihapus.`);
+    await loadCdnAssets();
+  } catch (err) {
+    toast(`Gagal menghapus foto: ${err.message}`, "err");
+  }
+});
+
+let scanStream = null;
+$("scanBtn").onclick = async () => {
+  const box = $("scanBox");
+  box.hidden = !box.hidden;
+  if (box.hidden) {
+    if (scanStream) { scanStream.getTracks().forEach((t) => t.stop()); scanStream = null; }
+    $("scanVideo").hidden = true;
+    return;
+  }
+  $("scanQuick").innerHTML = shipments.slice(0, 6).map((s) =>
+    `<button type="button" class="btn sm ghost" data-scan="${esc(s.code)}">Scan: ${esc(s.code)}</button>`
+  ).join("");
+  $("scanQuick").onclick = (e) => {
+    const c = e.target.dataset?.scan;
+    if (c) { $("existing").value = c; onSelectExisting(); box.hidden = true; toast(`Resi ${c} terpilih dari hasil scan.`); }
+  };
+  if (navigator.mediaDevices?.getUserMedia) {
+    try {
+      scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      const v = $("scanVideo");
+      v.srcObject = scanStream;
+      v.hidden = false;
+    } catch { /* fallback input manual/quick scan */ }
+  }
+};
+
+$("applyScan").onclick = () => {
+  const val = $("scanManual").value.trim().toUpperCase();
+  if (!val) return;
+  if (!shipments.some((s) => s.code === val)) {
+    const opt = document.createElement("option");
+    opt.value = val;
+    opt.textContent = `${val} (Hasil Scan)`;
+    $("existing").prepend(opt);
+  }
+  $("existing").value = val;
+  onSelectExisting();
+  $("scanBox").hidden = true;
+  toast(`Resi ${val} diterapkan.`);
+};
+
 /* ---------- Init ---------- */
+setMode(qs("code") ? "update" : "new");
 
 (async () => {
-  await checkHealth();
   try { await loadShipments(); } catch (e) { console.error(e); }
-  setMode(qs("code") ? "update" : "new");
+  loadCdnAssets();
+  checkHealth();
   setInterval(checkHealth, 10000);
 })();
 </script>

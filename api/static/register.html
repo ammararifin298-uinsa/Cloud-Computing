@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pendaftaran Pegawai | LacakIn</title>
+<link rel="icon" type="image/svg+xml" href="/static/logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/app.css?v=8">
+<style>
+  body.auth-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 32px 16px;
+    background: radial-gradient(circle at 50% 0%, #e7f1fc 0%, var(--bg) 55%);
+  }
+  .reg-shell {
+    width: 100%;
+    max-width: 580px;
+  }
+  .auth-head {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .auth-mark {
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 12px;
+    border-radius: 14px;
+    display: block;
+    box-shadow: 0 12px 28px -10px rgba(11, 114, 217, .5);
+  }
+  .auth-head h1 {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -.4px;
+  }
+  .auth-head .page-sub {
+    margin-top: 4px;
+    font-size: 13px;
+  }
+  .auth-card {
+    box-shadow: 0 4px 24px -6px rgba(15, 30, 51, .08);
+  }
+  .id-preview {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-radius: 9px;
+    background: var(--brand-soft);
+    border: 1px solid #bfdbfe;
+    margin-bottom: 16px;
+    font-size: 12.5px;
+    color: var(--text-2);
+  }
+  .id-preview strong {
+    font-family: var(--mono);
+    font-size: 13.5px;
+    color: var(--brand);
+  }
+  .auth-switch {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .auth-switch a {
+    color: var(--brand);
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .auth-switch a:hover {
+    text-decoration: underline;
+  }
+  .reg-done {
+    text-align: center;
+    padding: 16px 8px;
+  }
+  .reg-done .emp-badge {
+    display: inline-block;
+    margin: 12px 0 16px;
+    padding: 10px 20px;
+    border-radius: 10px;
+    background: var(--brand-soft);
+    border: 1px solid #bfdbfe;
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--brand);
+  }
+</style>
+</head>
+<body class="auth-page">
+  <div class="reg-shell">
+    <div class="auth-head">
+      <img class="auth-mark" src="/static/logo.svg" alt="Logo LacakIn" width="52" height="52">
+      <h1>Pendaftaran Pegawai LacakIn</h1>
+      <p class="page-sub">Lengkapi identitas karyawan. Nomor pegawai diterbitkan otomatis sesuai jabatan.</p>
+    </div>
+
+    <div class="card auth-card">
+      <div class="card-b">
+        <div id="doneBox" class="reg-done" hidden>
+          <h2>Pendaftaran Berhasil</h2>
+          <p class="muted" style="margin-top:6px">Akun pegawai Anda aktif dan siap digunakan. Simpan Nomor Pegawai berikut:</p>
+          <div class="emp-badge" id="genCode">-</div>
+          <p class="muted" id="genMeta" style="font-size:13px;margin-bottom:18px"></p>
+          <a class="btn block" href="/">Masuk ke Dashboard Pegawai</a>
+        </div>
+
+        <form id="registerForm" method="post" onsubmit="return false;" autocomplete="off" novalidate>
+          <div class="id-preview">
+            <span>Format Nomor Pegawai otomatis</span>
+            <strong id="codePreview">KUR-XXXX</strong>
+          </div>
+
+          <div class="field-grid">
+            <div class="field">
+              <label for="rRole">Jabatan / Peran</label>
+              <select id="rRole" required>
+                <option value="kurir">Kurir Lapangan (KUR)</option>
+                <option value="operator">Operator Gudang (OPR)</option>
+                <option value="supervisor">Supervisor Monitoring (SPV)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="rStation">Unit / Lokasi Penempatan</label>
+              <select id="rStation" required></select>
+            </div>
+          </div>
+
+          <div class="field-grid">
+            <div class="field">
+              <label for="rName">Nama Lengkap (sesuai KTP)</label>
+              <input id="rName" placeholder="Contoh: Budi Santoso" required>
+            </div>
+            <div class="field">
+              <label for="rNik">NIK (16 Digit)</label>
+              <input id="rNik" inputmode="numeric" maxlength="16" placeholder="16 digit angka KTP" required>
+            </div>
+          </div>
+
+          <div class="field-grid">
+            <div class="field">
+              <label for="rPhone">No. HP / WhatsApp</label>
+              <input id="rPhone" type="tel" placeholder="08xxxxxxxxxx" required>
+            </div>
+            <div class="field">
+              <label for="rEmail">Email Kerja</label>
+              <input id="rEmail" type="email" placeholder="nama@lacakin.id" required>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="rUser">Username</label>
+            <input id="rUser" placeholder="Huruf kecil, angka, titik, atau garis bawah" required autocomplete="off">
+          </div>
+
+          <div class="field-grid">
+            <div class="field">
+              <label for="rPass">Kata Sandi</label>
+              <div class="pass-wrap">
+                <input id="rPass" type="password" placeholder="Minimal 6 karakter" required autocomplete="new-password">
+                <button type="button" class="btn-toggle-pass" id="btnTogglePass1" title="Lihat/Sembunyikan kata sandi"></button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="rPass2">Konfirmasi Kata Sandi</label>
+              <div class="pass-wrap">
+                <input id="rPass2" type="password" placeholder="Ulangi kata sandi" required autocomplete="new-password">
+                <button type="button" class="btn-toggle-pass" id="btnTogglePass2" title="Lihat/Sembunyikan kata sandi"></button>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn block" type="submit" id="rBtn">Daftarkan Pegawai</button>
+        </form>
+
+        <div class="auth-switch" id="switchFoot">
+          Sudah punya akun pegawai? <a href="/login">Masuk di sini</a> &middot; <a href="/lacak">Lacak Resi Publik</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script src="/static/app.js?v=8"></script>
+<script>
+attachPasswordToggle("rPass", "btnTogglePass1");
+attachPasswordToggle("rPass2", "btnTogglePass2");
+
+const PREFIX = { kurir: "KUR-XXXX", operator: "OPR-XXXX", supervisor: "SPV-XXXX" };
+
+$("rStation").innerHTML = LOCATIONS
+  .filter((g) => g.group !== "Last-Mile")
+  .map((g) => `<optgroup label="${esc(g.group)}">${g.items.map((i) => `<option>${esc(i)}</option>`).join("")}</optgroup>`)
+  .join("") + `<option>Hub Kurir Last-Mile</option>`;
+
+$("rRole").addEventListener("change", () => {
+  $("codePreview").textContent = PREFIX[$("rRole").value] || "EMP-XXXX";
+});
+
+$("registerForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const nik = $("rNik").value.trim();
+  const pass = $("rPass").value;
+  const pass2 = $("rPass2").value;
+
+  if (!/^\d{16}$/.test(nik)) {
+    toast("NIK harus terdiri dari tepat 16 digit angka.", "err");
+    return;
+  }
+  if (pass.length < 6) {
+    toast("Kata sandi minimal 6 karakter.", "err");
+    return;
+  }
+  if (pass !== pass2) {
+    toast("Konfirmasi kata sandi tidak cocok.", "err");
+    return;
+  }
+
+  const btn = $("rBtn");
+  btn.disabled = true;
+  try {
+    const res = await api("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({
+        role: $("rRole").value,
+        full_name: $("rName").value.trim(),
+        nik,
+        phone: $("rPhone").value.trim(),
+        email: $("rEmail").value.trim(),
+        station: $("rStation").value,
+        username: $("rUser").value.trim(),
+        password: pass,
+      }),
+    });
+    setAuth(res.access_token, res.user);
+    $("registerForm").hidden = true;
+    $("switchFoot").hidden = true;
+    $("genCode").textContent = res.user.employee_code;
+    $("genMeta").textContent = `${res.user.full_name} (${ROLE_LABELS[res.user.role] || res.user.role}) - ${res.user.station}`;
+    $("doneBox").hidden = false;
+    toast(`Pegawai terdaftar dengan kode ${res.user.employee_code}`);
+  } catch (err) {
+    toast(err.message, "err");
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
+
