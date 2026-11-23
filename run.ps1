@@ -1,19 +1,19 @@
 # ==========================================================
-# SKRIP KONTROL PROYEK LOGISTIK-DR (KELOMPOK 6)
+# SKRIP KONTROL PROYEK LACAKIN (KELOMPOK 6 - CLOUD COMPUTING)
 # ==========================================================
 
 Clear-Host
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "     SISTEM KONTROL CLOUD COMPUTING (LOGISTIKPRO)         " -ForegroundColor Cyan
+Write-Host "   SISTEM KONTROL CLOUD COMPUTING LACAKIN v2 (KELOMPOK 6) " -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "1. Nyalakan Semua Sistem (App + DB + Backup + Cloud Vault)"
-Write-Host "2. Jalankan Uji Otomatis Disaster Recovery (D1, D2 & Cloud)"
-Write-Host "3. Buka Halaman Backup & Cloud Vault (:8000/backup & :9000)"
-Write-Host "4. Sinkronisasi Backup ke Google Drive (via rclone)"
-Write-Host "5. Uji Cepat k6 (Smoke Test ~1 Menit)"
-Write-Host "6. Jalankan Pengawas Auto-Scaler (CPU Trigger > 70%)"
-Write-Host "7. Jalankan Stress Test Penuh 1.000 VU k6 (10 Menit)"
-Write-Host "8. Buka Dashboard Hasil Stress Test (loadtest/results/index.html)"
+Write-Host "1. Nyalakan Semua Sistem (2 LB + 3 Microservices + PgBouncer + HAProxy + DB + MinIO + CDN + Backup + Autoheal)"
+Write-Host "2. Scale Database Read Replica (contoh: 3, 19 [20 DB total], atau 29 [30 DB total])"
+Write-Host "3. Jalankan Uji Otomatis Disaster Recovery Kelompok 6 (backup/dr-test.ps1)"
+Write-Host "4. Jalankan Pengawas Auto-Scaler Microservices 1..10 Node (loadtest/autoscaler.ps1)"
+Write-Host "5. Uji Stress Test k6 — Tracking Microservice (stress.js)"
+Write-Host "6. Uji Stress Test k6 — Auth Microservice & Rate Limit 429 (auth-stress.js)"
+Write-Host "7. Uji Stress Test k6 — Edge CDN & MinIO Proxy Cache (cdn-stress.js)"
+Write-Host "8. Buka Aplikasi (:8000), Standby LB (:8001), CDN (:8080), & MinIO Console (:9001)"
 Write-Host "9. Bersihkan Data Uji Dummy (LOAD-*) dari Database"
 Write-Host "10. Matikan Seluruh Sistem (docker compose down)"
 Write-Host "0. Keluar"
@@ -23,47 +23,48 @@ $pilihan = Read-Host "Pilih menu [0-10]"
 
 switch ($pilihan) {
     "1" {
-        Write-Host "`nMenyalakan seluruh container (termasuk Cloud Backup Vault)..." -ForegroundColor Yellow
+        Write-Host "`nMembangun frontend React & menyalakan seluruh container..." -ForegroundColor Yellow
+        npm --prefix frontend run build
         docker compose up -d --build
         docker compose ps
-        Write-Host "`nMembuka aplikasi utama & halaman Backup..." -ForegroundColor Green
-        Start-Process "http://localhost:8000"
-        Start-Process "http://localhost:8000/backup"
-        Start-Process "http://localhost:9000"
     }
     "2" {
-        Write-Host "`nMenjalankan Simulasi & Pengukuran Disaster Recovery Otomatis..." -ForegroundColor Yellow
-        powershell -ExecutionPolicy Bypass -File .\backup\dr-test.ps1
+        $n = Read-Host "Masukkan jumlah db-replica (contoh: 3, 19 untuk 20 DB total, 29 untuk 30 DB total)"
+        if (-not $n) { $n = 3 }
+        Write-Host "`nMenskalakan db-replica menjadi $n container..." -ForegroundColor Yellow
+        docker compose up -d --no-recreate --scale "db-replica=$n" db-replica
+        docker compose ps
     }
     "3" {
-        Write-Host "`nMembuka Pusat Kendali Backup & Cloud Vault..." -ForegroundColor Green
-        Start-Process "http://localhost:8000/backup"
-        Start-Process "http://localhost:9000"
+        Write-Host "`nMenjalankan Simulasi & Pengukuran Disaster Recovery Kelompok 6..." -ForegroundColor Yellow
+        powershell -ExecutionPolicy Bypass -File .\backup\dr-test.ps1
     }
     "4" {
-        Write-Host "`nMenjalankan Sinkronisasi Google Drive..." -ForegroundColor Yellow
-        powershell -ExecutionPolicy Bypass -File .\backup\sync-gdrive.ps1 -Action sync
-    }
-    "5" {
-        Write-Host "`nMenjalankan Smoke Test k6..." -ForegroundColor Yellow
-        powershell -ExecutionPolicy Bypass -File .\loadtest\run-test.ps1 -Name demo-smoke -Hold 10s -Ramp 5s
-    }
-    "6" {
-        Write-Host "`nMenjalankan Auto Scaler (Pantau CPU)..." -ForegroundColor Yellow
+        Write-Host "`nMenjalankan Auto-Scaler Microservices (1..10 Node)..." -ForegroundColor Yellow
         powershell -ExecutionPolicy Bypass -File .\loadtest\autoscaler.ps1
     }
+    "5" {
+        Write-Host "`nMenjalankan Stress Test k6 — Tracking Service..." -ForegroundColor Yellow
+        powershell -ExecutionPolicy Bypass -File .\loadtest\run-test.ps1 -Name tracking-stress -Script stress.js -Hold 10s -Ramp 5s
+    }
+    "6" {
+        Write-Host "`nMenjalankan Stress Test k6 — Auth Service & Rate Limit 429..." -ForegroundColor Yellow
+        powershell -ExecutionPolicy Bypass -File .\loadtest\run-test.ps1 -Name auth-stress -Script auth-stress.js -Hold 10s -Ramp 5s
+    }
     "7" {
-        Write-Host "`nMenjalankan Stress Test 1.000 VU (k6)..." -ForegroundColor Yellow
-        powershell -ExecutionPolicy Bypass -File .\loadtest\run-test.ps1 -Name autoscale
+        Write-Host "`nMenjalankan Stress Test k6 — Edge CDN & MinIO Cache..." -ForegroundColor Yellow
+        powershell -ExecutionPolicy Bypass -File .\loadtest\run-test.ps1 -Name cdn-after -Script cdn-stress.js -Hold 10s -Ramp 5s
     }
     "8" {
-        Write-Host "`nMembuka Dashboard Hasil Laporan Stress Test..." -ForegroundColor Green
-        Start-Process ".\loadtest\results\index.html"
+        Write-Host "`nMembuka LacakIn (:8000), Standby LB (:8001), CDN (:8080), & MinIO (:9001)..." -ForegroundColor Green
+        Start-Process "http://localhost:8000"
+        Start-Process "http://localhost:8080/cdn-health"
+        Start-Process "http://localhost:9001"
     }
     "9" {
         Write-Host "`nMembersihkan data uji dummy dari database..." -ForegroundColor Yellow
-        docker exec warehouse-db psql -U logistik -c "DELETE FROM tracking_events WHERE shipment_code LIKE 'LOAD-%'; DELETE FROM shipments WHERE code LIKE 'LOAD-%';"
-        docker compose up -d --scale api=1
+        docker exec lacakin-db-primary psql -U logistik -d logistik -c "DELETE FROM tracking_events WHERE shipment_code LIKE 'LOAD-%'; DELETE FROM shipments WHERE code LIKE 'LOAD-%';"
+        docker compose up -d --no-recreate --scale tracking-service=1 tracking-service
         Write-Host "Data uji berhasil dibersihkan!" -ForegroundColor Green
     }
     "10" {
@@ -75,4 +76,3 @@ switch ($pilihan) {
         Write-Host "`nKeluar." -ForegroundColor Gray
     }
 }
-

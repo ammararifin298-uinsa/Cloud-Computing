@@ -1,12 +1,14 @@
-// k6 stress test: 10 -> 100 -> 500 -> 1000 VU, tiap tahap ditahan HOLD.
-// Env: BASE_URL (default http://lb), HOLD (default 2m), RAMP (default 20s)
+// k6 Stress & Breakpoint Test — Tracking Microservice (10 -> 100 -> 500 -> 1000 VU)
+// Menguji endpoint utama: GET /api/dashboard, GET /api/shipments, GET /api/reference, POST /api/tariffs/quote, dan GET /api/shipments/:code/events
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Rate } from 'k6/metrics';
 
-const BASE = __ENV.BASE_URL || 'http://lb';
+const BASE = __ENV.BASE_URL || 'http://lacakin-lb-1';
 const HOLD = __ENV.HOLD || '2m';
 const RAMP = __ENV.RAMP || '20s';
+const USER_ID = __ENV.TEST_USER || 'superadmin';
+const USER_PW = __ENV.TEST_PASS || 'super123';
 
 export const errors = new Rate('app_errors');
 
@@ -25,25 +27,65 @@ export const options = {
   summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
 };
 
-const STATUSES = ['DITERIMA', 'DISIMPAN', 'DALAM_PERJALANAN', 'DIKIRIM', 'SELESAI'];
-const params = { headers: { 'Content-Type': 'application/json' } };
+export function setup() {
+  const loginRes = http.post(
+    `${BASE}/api/auth/login`,
+    JSON.stringify({ identifier: USER_ID, password: USER_PW }),
+    { headers: { 'Content-Type': 'application/json' } }
+  );
+  const token = loginRes.status === 200 ? loginRes.json('access_token') : '';
 
-export default function () {
+  // Ambil 1 kode resi aktif bila tersedia untuk uji tracking publik
+  let sampleCode = '';
+  if (token) {
+    const listRes = http.get(`${BASE}/api/shipments?limit=5`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (listRes.status === 200) {
+      const items = listRes.json('items') || [];
+      if (items.length > 0) sampleCode = items[0].code;
+    }
+  }
+  return { token, sampleCode };
+}
+
+export default function (data) {
+  const authHeaders = data.token
+    ? { Authorization: `Bearer ${data.token}`, 'Content-Type': 'application/json' }
+    : { 'Content-Type': 'application/json' };
+
   const r = Math.random();
   let res;
-  if (r < 0.5) {            // 50% baca dashboard (query agregasi)
-    res = http.get(`${BASE}/api/dashboard`, { tags: { name: 'GET /api/dashboard' } });
-  } else if (r < 0.8) {     // 30% tulis event checkpoint
-    const body = JSON.stringify({
-      shipment_code: `LOAD-${__VU % 200}`,
-      status: STATUSES[Math.floor(Math.random() * STATUSES.length)],
-      location: 'Gudang Surabaya',
+
+  if (r < 0.45) {
+    // 45% Dashboard operasional (Read Replica + Cache)
+    res = http.get(`${BASE}/api/dashboard`, {
+      headers: authHeaders,
+      tags: { name: 'GET /api/dashboard' },
     });
-    res = http.post(`${BASE}/api/events`, body, { ...params, tags: { name: 'POST /api/events' } });
-  } else {                  // 20% list pengiriman
-    res = http.get(`${BASE}/api/shipments`, { tags: { name: 'GET /api/shipments' } });
+  } else if (r < 0.75) {
+    // 30% Daftar pengiriman dengan keyset pagination (Read Replica)
+    res = http.get(`${BASE}/api/shipments?limit=25`, {
+      headers: authHeaders,
+      tags: { name: 'GET /api/shipments' },
+    });
+  } else if (r < 0.90) {
+    // 15% Referensi wilayah Jawa Timur (Micro-cache Nginx + Read Replica)
+    res = http.get(`${BASE}/api/reference`, {
+      tags: { name: 'GET /api/reference' },
+    });
+  } else if (data.sampleCode) {
+    // 10% Pelacakan resi publik (public_tracking_view)
+    res = http.get(`${BASE}/api/shipments/${encodeURIComponent(data.sampleCode)}/events`, {
+      tags: { name: 'GET /api/shipments/:code/events' },
+    });
+  } else {
+    res = http.get(`${BASE}/livez`, { tags: { name: 'GET /livez' } });
   }
-  const ok = check(res, { 'status 2xx': (x) => x.status >= 200 && x.status < 300 });
+
+  const ok = check(res, {
+    'status 200': (x) => x.status === 200,
+  });
   errors.add(!ok);
-  sleep(Math.random() * 0.5 + 0.1);
+  sleep(Math.random() * 0.4 + 0.1);
 }

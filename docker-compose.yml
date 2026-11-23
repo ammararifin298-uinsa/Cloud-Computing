@@ -4,13 +4,31 @@ x-logging: &default-logging
     max-size: "10m"
     max-file: "3"
 
+x-microservice-security: &ms-security
+  restart: unless-stopped
+  read_only: true
+  tmpfs:
+    - /tmp:size=32m
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  labels:
+    autoheal: "true"
+  logging: *default-logging
+
 services:
+  # =========================================================================
+  # 1. DATABASE & CONNECTION POOLING TIER (1 Primary + Scalable 1..30 Replicas)
+  # =========================================================================
   db-primary:
     image: postgres:16-alpine
     container_name: lacakin-db-primary
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    labels:
+      autoheal: "true"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-logistik}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-logistik_dr_pass}
@@ -18,12 +36,14 @@ services:
       REPLICATOR_PASSWORD: ${REPLICATOR_PASSWORD:-repl_dr_pass}
     volumes:
       - pgdata_primary:/var/lib/postgresql/data
-      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
-      - ./db/init-primary.sh:/docker-entrypoint-initdb.d/02-replication.sh:ro
+      - ./db/01-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./db/02-init-primary.sh:/docker-entrypoint-initdb.d/02-init-primary.sh:ro
+      - ./db/03-wilayah-jatim.sql:/docker-entrypoint-initdb.d/03-wilayah-jatim.sql:ro
+      - ./db/04-bdl-upgrade.sql:/docker-entrypoint-initdb.d/04-bdl-upgrade.sql:ro
     networks:
       - backend_net
-    cpus: 1.0
-    mem_limit: 512m
+    cpus: 0.75
+    mem_limit: 256m
     logging: *default-logging
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-logistik} -d ${POSTGRES_DB:-logistik}"]
@@ -31,28 +51,32 @@ services:
       timeout: 3s
       retries: 10
 
-  db-standby:
+  db-replica:
     image: postgres:16-alpine
-    container_name: lacakin-db-standby
+    deploy:
+      replicas: 2
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    labels:
+      autoheal: "true"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-logistik}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-logistik_dr_pass}
       POSTGRES_DB: ${POSTGRES_DB:-logistik}
       REPLICATOR_PASSWORD: ${REPLICATOR_PASSWORD:-repl_dr_pass}
     volumes:
-      - pgdata_standby:/var/lib/postgresql/data
       - ./db/standby-entrypoint.sh:/standby-entrypoint.sh:ro
     entrypoint: ["sh", "/standby-entrypoint.sh"]
     depends_on:
       db-primary:
         condition: service_healthy
     networks:
-      - backend_net
-    cpus: 1.0
-    mem_limit: 512m
+      backend_net:
+        aliases:
+          - db-standby
+    cpus: 0.50
+    mem_limit: 256m
     logging: *default-logging
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-logistik} -d ${POSTGRES_DB:-logistik}"]
@@ -61,182 +85,280 @@ services:
       retries: 12
       start_period: 15s
 
-  api-1:
-    build: ./api
-    container_name: lacakin-api-1
+  haproxy-db:
+    image: haproxy:2.9-alpine
+    container_name: lacakin-haproxy-db
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    environment:
-      APP_NODE: api-1
-      DATABASE_URL: postgresql://${POSTGRES_USER:-logistik}:${POSTGRES_PASSWORD:-logistik_dr_pass}@db-primary:5432,db-standby:5432/${POSTGRES_DB:-logistik}?target_session_attrs=read-write
-      BACKUP_DIR: /backups
-      BACKUP_INTERVAL: ${BACKUP_INTERVAL:-900}
-      JWT_SECRET: ${JWT_SECRET:-lacakin-prod-jwt-secret-2026-change-me}
-      JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-43200}
-      S3_BUCKET: ${S3_BUCKET:-lacakin-backups}
-      SERVE_STATIC: "0"
-      UPLOADS_DIR: /cdn-uploads
-      CDN_PUBLIC_URL: ${CDN_PUBLIC_URL:-http://localhost:8080}
+    labels:
+      autoheal: "true"
     volumes:
-      - ./backups:/backups:ro
-      - cdn_uploads:/cdn-uploads
-    expose:
-      - "8000"
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     depends_on:
       db-primary:
         condition: service_healthy
-    networks:
-      - backend_net
-    cpus: 0.75
-    mem_limit: 384m
-    logging: *default-logging
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-
-  api-2:
-    build: ./api
-    container_name: lacakin-api-2
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    environment:
-      APP_NODE: api-2
-      DATABASE_URL: postgresql://${POSTGRES_USER:-logistik}:${POSTGRES_PASSWORD:-logistik_dr_pass}@db-primary:5432,db-standby:5432/${POSTGRES_DB:-logistik}?target_session_attrs=read-write
-      BACKUP_DIR: /backups
-      BACKUP_INTERVAL: ${BACKUP_INTERVAL:-900}
-      JWT_SECRET: ${JWT_SECRET:-lacakin-prod-jwt-secret-2026-change-me}
-      JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-43200}
-      S3_BUCKET: ${S3_BUCKET:-lacakin-backups}
-      SERVE_STATIC: "0"
-      UPLOADS_DIR: /cdn-uploads
-      CDN_PUBLIC_URL: ${CDN_PUBLIC_URL:-http://localhost:8080}
-    volumes:
-      - ./backups:/backups:ro
-      - cdn_uploads:/cdn-uploads
-    expose:
-      - "8000"
-    depends_on:
-      db-primary:
+      db-replica:
         condition: service_healthy
     networks:
       - backend_net
-    cpus: 0.75
-    mem_limit: 384m
+    cpus: 0.35
+    mem_limit: 96m
     logging: *default-logging
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-
-  lb-1:
-    image: nginx:1.27-alpine
-    container_name: lacakin-lb-1
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    ports:
-      - "8000:80"
-    depends_on:
-      api-1:
-        condition: service_healthy
-      api-2:
-        condition: service_healthy
-      cdn:
-        condition: service_healthy
-    networks:
-      frontend_net:
-      backend_net:
-        aliases:
-          - lb
-    cpus: 0.5
-    mem_limit: 128m
-    logging: *default-logging
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health >/dev/null || exit 1"]
-      interval: 10s
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 5432 || exit 1"]
+      interval: 5s
       timeout: 3s
-      retries: 3
+      retries: 5
 
-  lb-2:
-    image: nginx:1.27-alpine
-    container_name: lacakin-lb-2
+  pgbouncer-rw:
+    image: edoburu/pgbouncer:v1.23.1-p3
+    container_name: lacakin-pgbouncer-rw
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    ports:
-      - "8001:80"
-    depends_on:
-      api-1:
-        condition: service_healthy
-      api-2:
-        condition: service_healthy
-      cdn:
-        condition: service_healthy
-    networks:
-      frontend_net:
-      backend_net:
-    cpus: 0.5
-    mem_limit: 128m
-    logging: *default-logging
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health >/dev/null || exit 1"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-
-  backup:
-    build: ./backup
-    container_name: lacakin-backup
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
+    labels:
+      autoheal: "true"
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-logistik}
-      PGPASSWORD: ${POSTGRES_PASSWORD:-logistik_dr_pass}
-      POSTGRES_DB: ${POSTGRES_DB:-logistik}
-      BACKUP_INTERVAL: ${BACKUP_INTERVAL:-900}
-    volumes:
-      - ./backup/backup.sh:/backup.sh:ro
-      - ./backups:/backups
-    entrypoint: ["sh", "/backup.sh"]
+      DB_HOST: db-primary
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-logistik}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-logistik_dr_pass}
+      DB_NAME: ${POSTGRES_DB:-logistik}
+      LISTEN_PORT: 6432
+      AUTH_TYPE: scram-sha-256
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 500
+      DEFAULT_POOL_SIZE: 25
+      MIN_POOL_SIZE: 5
+      RESERVE_POOL_SIZE: 5
+      IGNORE_STARTUP_PARAMETERS: extra_float_digits,statement_timeout,options
+      ADMIN_USERS: ${POSTGRES_USER:-logistik}
     depends_on:
       db-primary:
         condition: service_healthy
     networks:
       - backend_net
-    cpus: 0.5
+    cpus: 0.35
+    mem_limit: 96m
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 6432 -U ${POSTGRES_USER:-logistik} -d ${POSTGRES_DB:-logistik}"]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+
+  pgbouncer-ro:
+    image: edoburu/pgbouncer:v1.23.1-p3
+    container_name: lacakin-pgbouncer-ro
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    labels:
+      autoheal: "true"
+    environment:
+      DB_HOST: haproxy-db
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-logistik}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-logistik_dr_pass}
+      DB_NAME: ${POSTGRES_DB:-logistik}
+      LISTEN_PORT: 6432
+      AUTH_TYPE: scram-sha-256
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 800
+      DEFAULT_POOL_SIZE: 25
+      MIN_POOL_SIZE: 5
+      RESERVE_POOL_SIZE: 5
+      IGNORE_STARTUP_PARAMETERS: extra_float_digits,statement_timeout,options
+      ADMIN_USERS: ${POSTGRES_USER:-logistik}
+    depends_on:
+      haproxy-db:
+        condition: service_healthy
+    networks:
+      - backend_net
+    cpus: 0.35
+    mem_limit: 96m
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 6432 -U ${POSTGRES_USER:-logistik} -d ${POSTGRES_DB:-logistik}"]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+
+  # =========================================================================
+  # 2. OBJECT STORAGE TIER (MinIO — Dedicated strictly to application media)
+  # =========================================================================
+  minio:
+    build: ./minio
+    image: lacakin-minio:2.0
+    container_name: lacakin-minio
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    labels:
+      autoheal: "true"
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-lacakin_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-lacakin_minio_secret_2026}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - frontend_net
+      - backend_net
+    cpus: 0.50
     mem_limit: 256m
     logging: *default-logging
     healthcheck:
-      test: ["CMD-SHELL", "find /backups -name 'logistik_*.dump' -mmin -30 | grep -q ."]
-      interval: 60s
-      timeout: 5s
-      retries: 2
-      start_period: 90s
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9000/minio/health/live >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
+  # =========================================================================
+  # 3. MICROSERVICES TIER (Express.js — All 3 scalable 1..10 nodes)
+  # =========================================================================
+  tracking-service:
+    <<: *ms-security
+    build: ./backend
+    image: lacakin-backend:2.0
+    deploy:
+      replicas: 2
+    command: ["node", "src/trackingServer.js"]
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      PORT: 8000
+      WRITE_DATABASE_URL: postgresql://${POSTGRES_USER:-logistik}:${POSTGRES_PASSWORD:-logistik_dr_pass}@pgbouncer-rw:6432/${POSTGRES_DB:-logistik}
+      READ_DATABASE_URL: postgresql://${POSTGRES_USER:-logistik}:${POSTGRES_PASSWORD:-logistik_dr_pass}@pgbouncer-ro:6432/${POSTGRES_DB:-logistik}
+      JWT_SECRET: ${JWT_SECRET:-lacakin-enterprise-jwt-secret-key-2026-secure}
+      JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-43200}
+      POOL_MAX_WRITE: 10
+      POOL_MAX_READ: 15
+    expose:
+      - "8000"
+    depends_on:
+      pgbouncer-rw:
+        condition: service_healthy
+      pgbouncer-ro:
+        condition: service_healthy
+    networks:
+      backend_net:
+        aliases:
+          - api-1
+          - api-2
+    cpus: 0.75
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8000/livez >/dev/null || exit 1"]
+      interval: 8s
+      timeout: 3s
+      retries: 3
+      start_period: 8s
+
+  auth-service:
+    <<: *ms-security
+    build: ./backend
+    image: lacakin-backend:2.0
+    deploy:
+      replicas: 2
+    command: ["node", "src/authServer.js"]
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      PORT: 8000
+      WRITE_DATABASE_URL: postgresql://${POSTGRES_USER:-logistik}:${POSTGRES_PASSWORD:-logistik_dr_pass}@pgbouncer-rw:6432/${POSTGRES_DB:-logistik}
+      READ_DATABASE_URL: postgresql://${POSTGRES_USER:-logistik}:${POSTGRES_PASSWORD:-logistik_dr_pass}@pgbouncer-ro:6432/${POSTGRES_DB:-logistik}
+      JWT_SECRET: ${JWT_SECRET:-lacakin-enterprise-jwt-secret-key-2026-secure}
+      JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-43200}
+      BACKUP_DIR: /backups
+      BACKUP_INTERVAL: ${BACKUP_INTERVAL:-900}
+      STORAGE_BACKEND: minio
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-lacakin_minio}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-lacakin_minio_secret_2026}
+      MINIO_BUCKET: ${MINIO_BUCKET:-lacakin-media}
+      CDN_PUBLIC_URL: ${CDN_PUBLIC_URL:-http://localhost:8080}
+    volumes:
+      - ./backups:/backups:ro
+    expose:
+      - "8000"
+    depends_on:
+      pgbouncer-rw:
+        condition: service_healthy
+      pgbouncer-ro:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - backend_net
+    cpus: 0.50
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8000/livez >/dev/null || exit 1"]
+      interval: 8s
+      timeout: 3s
+      retries: 3
+      start_period: 8s
+
+  media-service:
+    <<: *ms-security
+    build: ./backend
+    image: lacakin-backend:2.0
+    deploy:
+      replicas: 2
+    command: ["node", "src/mediaServer.js"]
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      PORT: 8000
+      WRITE_DATABASE_URL: postgresql://${POSTGRES_USER:-logistik}:${POSTGRES_PASSWORD:-logistik_dr_pass}@pgbouncer-rw:6432/${POSTGRES_DB:-logistik}
+      READ_DATABASE_URL: postgresql://${POSTGRES_USER:-logistik}:${POSTGRES_PASSWORD:-logistik_dr_pass}@pgbouncer-ro:6432/${POSTGRES_DB:-logistik}
+      JWT_SECRET: ${JWT_SECRET:-lacakin-enterprise-jwt-secret-key-2026-secure}
+      STORAGE_BACKEND: minio
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-lacakin_minio}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-lacakin_minio_secret_2026}
+      MINIO_BUCKET: ${MINIO_BUCKET:-lacakin-media}
+      CDN_PUBLIC_URL: ${CDN_PUBLIC_URL:-http://localhost:8080}
+    expose:
+      - "8000"
+    depends_on:
+      pgbouncer-rw:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - backend_net
+    cpus: 0.50
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8000/livez >/dev/null || exit 1"]
+      interval: 8s
+      timeout: 3s
+      retries: 3
+      start_period: 8s
+
+  # =========================================================================
+  # 4. EDGE CDN & GATEWAY TIER (React SPA Static + Nginx proxy_cache -> MinIO)
+  # =========================================================================
   cdn:
     image: nginx:1.27-alpine
     container_name: lacakin-cdn
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    labels:
+      autoheal: "true"
     volumes:
       - ./nginx/cdn.conf:/etc/nginx/nginx.conf:ro
-      - ./api/static:/usr/share/nginx/html:ro
-      - cdn_uploads:/usr/share/nginx/uploads:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
+      - cdn_cache:/var/cache/nginx
     ports:
       - "8080:80"
+    depends_on:
+      minio:
+        condition: service_healthy
     networks:
       - frontend_net
       - backend_net
@@ -249,6 +371,127 @@ services:
       timeout: 3s
       retries: 3
 
+  lb-1:
+    image: nginx:1.27-alpine
+    container_name: lacakin-lb-1
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    labels:
+      autoheal: "true"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8000:80"
+    depends_on:
+      tracking-service:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      media-service:
+        condition: service_healthy
+      cdn:
+        condition: service_healthy
+    networks:
+      frontend_net:
+      backend_net:
+        aliases:
+          - lb
+    cpus: 0.50
+    mem_limit: 128m
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/livez >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  lb-2:
+    image: nginx:1.27-alpine
+    container_name: lacakin-lb-2
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    labels:
+      autoheal: "true"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8001:80"
+    depends_on:
+      tracking-service:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      media-service:
+        condition: service_healthy
+      cdn:
+        condition: service_healthy
+    networks:
+      frontend_net:
+      backend_net:
+    cpus: 0.50
+    mem_limit: 128m
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/livez >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # =========================================================================
+  # 5. DR BACKUP & AUTO-HEALING TIER (Isolated from MinIO)
+  # =========================================================================
+  backup:
+    build: ./backup
+    container_name: lacakin-backup
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    labels:
+      autoheal: "true"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-logistik}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-logistik_dr_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-logistik}
+      BACKUP_INTERVAL: ${BACKUP_INTERVAL:-900}
+      RCLONE_REMOTE: ${RCLONE_REMOTE:-}
+    volumes:
+      - ./backup/backup.sh:/backup.sh:ro
+      - ./backup/restore.sh:/restore.sh:ro
+      - ./backups:/backups
+    entrypoint: ["sh", "/backup.sh"]
+    depends_on:
+      db-primary:
+        condition: service_healthy
+    networks:
+      - backend_net
+    cpus: 0.50
+    mem_limit: 256m
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "find /backups -name 'logistik_*.dump' -mmin -30 | grep -q ."]
+      interval: 60s
+      timeout: 5s
+      retries: 2
+      start_period: 90s
+
+  autoheal:
+    image: willfarrell/autoheal:1.2.0
+    container_name: lacakin-autoheal
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+      AUTOHEAL_INTERVAL: 5
+      AUTOHEAL_START_PERIOD: 20
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    cpus: 0.15
+    mem_limit: 64m
+    logging: *default-logging
+
 networks:
   frontend_net:
     driver: bridge
@@ -258,5 +501,5 @@ networks:
 
 volumes:
   pgdata_primary:
-  pgdata_standby:
-  cdn_uploads:
+  minio_data:
+  cdn_cache:

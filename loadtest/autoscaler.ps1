@@ -1,43 +1,78 @@
-# Autoscaler sederhana untuk arsitektur HA Docker Compose (api-1 dan api-2).
-# Setiap INTERVAL detik: ukur rata-rata CPU node API yang aktif, lalu aktifkan/matikan api-2.
-#   CPU rata-rata > UpCpu   -> aktifkan api-2 (scale up 1 -> 2)
-#   CPU rata-rata < DownCpu selama DownCycles siklus berturut-turut -> matikan api-2 (scale down 2 -> 1)
-# Log: loadtest/results/autoscale.csv  (timestamp,replicas,avg_cpu,action)
+# Autoscaler Horizontal Otomatis untuk:
+#   1. Microservices Express.js (tracking-service, auth-service, media-service): 2..10 node
+#   2. Database Read Replica (db-replica @ 256m, belakang HAProxy): 2..20 node
+# Memantau CPU container tiap Interval detik via docker stats:
+#   - Rata-rata CPU > UpCpu%   -> Scale Up (+1 node)
+#   - Rata-rata CPU < DownCpu% selama DownCycles berturut-turut -> Scale Down (-1 node)
+# Log CSV: loadtest/results/autoscale.csv
 param(
-  [double]$UpCpu = 70, [double]$DownCpu = 20,
-  [int]$Interval = 5, [int]$DownCycles = 6
+  [int]$AppMin = 2,
+  [int]$AppMax = 10,
+  [int]$DbMin = 2,
+  [int]$DbMax = 20,
+  [double]$UpCpu = 65,
+  [double]$DownCpu = 20,
+  [int]$Interval = 5,
+  [int]$DownCycles = 4
 )
+
 $ErrorActionPreference = 'Continue'
 Set-Location (Join-Path $PSScriptRoot '..')
 New-Item -ItemType Directory -Force loadtest/results | Out-Null
 $log = 'loadtest/results/autoscale.csv'
-'timestamp,replicas,avg_cpu,action' | Set-Content $log
-$low = 0
-Write-Host "Autoscaler HA aktif (api-1 -> api-2, up>$UpCpu% down<$DownCpu%). Ctrl+C untuk berhenti."
+'timestamp,service,replicas,avg_cpu,action' | Set-Content $log
+
+$targets = @(
+  @{ name = 'tracking-service'; min = $AppMin; max = $AppMax },
+  @{ name = 'auth-service';     min = $AppMin; max = $AppMax },
+  @{ name = 'media-service';    min = $AppMin; max = $AppMax },
+  @{ name = 'db-replica';       min = $DbMin;  max = $DbMax  }
+)
+
+$lowCounters = @{}
+foreach ($t in $targets) { $lowCounters[$t.name] = 0 }
+
+Write-Host "=== LacakIn Full-Stack Autoscaler (App $AppMin..$AppMax | DB Replica $DbMin..$DbMax | Up>$UpCpu% | Down<$DownCpu%) ==="
+Write-Host "Tekan Ctrl+C untuk berhenti."
 
 while ($true) {
-  $ids = @(docker compose ps -q api-1 api-2 2>$null | Where-Object { $_ })
-  $n = $ids.Count
-  if ($n -eq 0) { Start-Sleep $Interval; continue }
-  $cpus = @(docker stats --no-stream --format '{{.CPUPerc}}' $ids 2>$null |
-            ForEach-Object { [double]($_ -replace '%','') })
-  if ($cpus.Count -eq 0) { Start-Sleep $Interval; continue }
-  $avg = [math]::Round(($cpus | Measure-Object -Average).Average, 1)
-  $action = 'hold'
+  foreach ($t in $targets) {
+    $svc = $t.name
+    $ids = @(docker compose ps -q $svc 2>$null | Where-Object { $_ })
+    $n = $ids.Count
+    if ($n -eq 0) { continue }
 
-  if ($avg -gt $UpCpu -and $n -lt 2) {
-    docker compose start api-2 2>&1 | Out-Null
-    $action = "scale_up 1->2"; $low = 0
-  } elseif ($avg -lt $DownCpu -and $n -gt 1) {
-    $low++
-    if ($low -ge $DownCycles) {
-      docker compose stop api-2 2>&1 | Out-Null
-      $action = "scale_down 2->1"; $low = 0
+    $cpus = @(docker stats --no-stream --format '{{.CPUPerc}}' $ids 2>$null |
+              ForEach-Object {
+                $val = ($_ -replace '%', '').Trim()
+                $num = 0.0
+                if ([double]::TryParse($val, [System.Globalization.NumberStyles]::Any, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$num)) { $num }
+              })
+    if ($cpus.Count -eq 0) { continue }
+
+    $avg = [math]::Round(($cpus | Measure-Object -Average).Average, 1)
+    $action = 'hold'
+
+    if ($avg -gt $UpCpu -and $n -lt $t.max) {
+      $next = [math]::Min($n + 1, $t.max)
+      docker compose up -d --no-recreate --scale "${svc}=${next}" $svc 2>&1 | Out-Null
+      $action = "scale_up ${n}->${next}"
+      $lowCounters[$svc] = 0
+    } elseif ($avg -lt $DownCpu -and $n -gt $t.min) {
+      $lowCounters[$svc]++
+      if ($lowCounters[$svc] -ge $DownCycles) {
+        $next = [math]::Max($n - 1, $t.min)
+        docker compose up -d --no-recreate --scale "${svc}=${next}" $svc 2>&1 | Out-Null
+        $action = "scale_down ${n}->${next}"
+        $lowCounters[$svc] = 0
+      }
+    } else {
+      $lowCounters[$svc] = 0
     }
-  } else { $low = 0 }
 
-  $ts = Get-Date -Format 'HH:mm:ss'
-  "$ts,$n,$avg,$action" | Add-Content $log
-  Write-Host "[$ts] active_nodes=$n avg_cpu=$avg% -> $action"
+    $ts = Get-Date -Format 'HH:mm:ss'
+    "$ts,$svc,$n,$avg,$action" | Add-Content $log
+    Write-Host "[$ts] [$svc] nodes=$n avg_cpu=$avg% -> $action"
+  }
   Start-Sleep $Interval
 }

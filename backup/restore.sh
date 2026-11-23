@@ -17,6 +17,8 @@ if [ -z "$DUMP_FILE" ] || [ ! -f "$DUMP_FILE" ]; then
     exit 1
 fi
 
+START_MS=$(date +%s)
+
 SHA_FILE="${DUMP_FILE}.sha256"
 if [ -f "$SHA_FILE" ]; then
     echo "[restore] Verifying SHA-256 checksum ($SHA_FILE)..."
@@ -37,5 +39,6 @@ echo "[restore] Restoring $DUMP_FILE into $PG_DB on $TARGET_HOST..."
 pg_restore --clean --if-exists --no-owner --no-privileges \
     -h "$TARGET_HOST" -U "$PG_USER" -d "$PG_DB" "$DUMP_FILE"
 
-echo "[restore] Completed successfully from $DUMP_FILE"
-
+END_MS=$(date +%s)
+ELAPSED=$((END_MS - START_MS))
+echo "[restore] Completed successfully from $DUMP_FILE in ${ELAPSED}s"

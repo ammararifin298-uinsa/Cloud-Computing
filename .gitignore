@@ -8,6 +8,9 @@ backups/
 .env
 .env.local
 
+# Node.js dependencies
+node_modules/
+
 # Python cache & virtual environments
 __pycache__/
 *.py[cod]

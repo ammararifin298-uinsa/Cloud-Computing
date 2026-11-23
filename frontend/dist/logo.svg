@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" fill="none">
+  <defs>
+    <linearGradient id="bgGrad" x1="12" y1="8" x2="108" y2="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#041e42"/>
+      <stop offset="55%" stop-color="#073d86"/>
+      <stop offset="100%" stop-color="#0b72d9"/>
+    </linearGradient>
+    <linearGradient id="swooshGrad" x1="16" y1="84" x2="90" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#bae6fd"/>
+      <stop offset="55%" stop-color="#e0f2fe"/>
+      <stop offset="100%" stop-color="#ffffff"/>
+    </linearGradient>
+    <mask id="pinHole">
+      <rect width="120" height="120" fill="#ffffff"/>
+      <circle cx="83" cy="30" r="4.6" fill="#000000"/>
+    </mask>
+    <mask id="boxCut">
+      <rect width="120" height="120" fill="#ffffff"/>
+      <path d="M 23 68 C 11 76 14 93 38 89.5 C 57 86.5 76 70 91 45 C 79 65 56 80 35 81.5 C 21.5 82.5 19.5 74.5 23 68 Z" stroke="#000000" stroke-width="4.5" fill="#000000"/>
+    </mask>
+  </defs>
+
+  <!-- Rounded App Icon Badge -->
+  <rect x="2" y="2" width="116" height="116" rx="28" fill="url(#bgGrad)"/>
+
+  <!-- Isometric Box -->
+  <g mask="url(#boxCut)">
+    <path d="M 27 45 L 51 33 L 61 38 L 37 50 Z" fill="#ffffff"/>
+    <path d="M 43 53 L 67 41 L 76 45.5 L 52 57.5 Z" fill="#ffffff"/>
+    <path d="M 25 49 L 47 60 L 47 73.5 C 39 76.5 31 76.5 25 73 Z" fill="#ffffff"/>
+    <path d="M 52 60 L 87 43 L 87 74 C 87 76.5 85.5 78.5 83.2 79.7 L 54.5 93.8 C 53 94.5 52 93.6 52 92 Z" fill="#ffffff"/>
+  </g>
+
+  <!-- Dynamic Orbital Swoosh -->
+  <path d="M 23 68 C 11 76 14 93 38 89.5 C 57 86.5 76 70 91 45 C 79 65 56 80 35 81.5 C 21.5 82.5 19.5 74.5 23 68 Z" fill="url(#swooshGrad)"/>
+
+  <!-- Location Pin (Top Right, with true transparent hole) -->
+  <path d="M 83 18 C 76.4 18 71 23.4 71 30 C 71 38.2 83 49.5 83 49.5 C 83 49.5 95 38.2 95 30 C 95 23.4 89.6 18 83 18 Z" fill="#ffffff" mask="url(#pinHole)"/>
+</svg>
