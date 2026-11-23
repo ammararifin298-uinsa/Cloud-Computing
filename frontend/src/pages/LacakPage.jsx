@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { motion } from "motion/react";
 import BarcodeScanner from "../components/BarcodeScanner.jsx";
 import { Icon } from "../components/Icons.jsx";
+import { ResponsiveSlider } from "@/components/shared/ResponsiveSlider";
+import { ResiBarcode } from "@/components/shared/ResiBarcode";
 import StatusBadge from "../components/StatusBadge.jsx";
 import { apiFetch, formatDateTime } from "../lib/api.js";
 
@@ -59,7 +62,12 @@ export default function LacakPage() {
   };
 
   return (
-    <div>
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: "easeOut" }}
+      className="space-y-6"
+    >
       <section className="lacak-hero">
         <div className="hero-badge">
           <Icon name="truck" size={14} />
@@ -134,6 +142,16 @@ export default function LacakPage() {
                 </div>
               </div>
               <StatusBadge status={result.shipment.current_status} />
+            </div>
+
+            <div style={{ marginBottom: 16, textAlign: "center" }}>
+              <ResiBarcode
+                code={result.shipment.code}
+                originCity={result.shipment.origin_city}
+                destCity={result.shipment.dest_city}
+                serviceCode={result.shipment.service_code}
+                showPrint
+              />
             </div>
 
             <div className="grid-2" style={{ gap: 12, padding: 14, borderRadius: 12, background: "var(--surface-2)", border: "1px solid var(--line)" }}>
@@ -213,42 +231,45 @@ export default function LacakPage() {
           </div>
         </div>
       ) : (
-        <div className="grid-4">
-          <div className="kpi-card">
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4 }}>Transparan</div>
-              <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
-                Setiap perpindahan gerai tercatat lengkap beserta waktu dan lokasi.
+        <div className="space-y-6">
+          <ResponsiveSlider />
+          <div className="grid-4">
+            <div className="kpi-card">
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4 }}>Transparan</div>
+                <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
+                  Setiap perpindahan gerai tercatat lengkap beserta waktu dan lokasi.
+                </div>
               </div>
+              <div className="kpi-icon kpi-blue"><Icon name="map-pin" /></div>
             </div>
-            <div className="kpi-icon kpi-blue"><Icon name="map-pin" /></div>
-          </div>
-          <div className="kpi-card">
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4 }}>Bukti Foto Asli</div>
-              <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
-                Dilengkapi dokumentasi foto saat paket diserahkan kepada penerima.
+            <div className="kpi-card">
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4 }}>Bukti Foto Asli</div>
+                <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
+                  Dilengkapi dokumentasi foto saat paket diserahkan kepada penerima.
+                </div>
               </div>
+              <div className="kpi-icon kpi-teal"><Icon name="camera" /></div>
             </div>
-            <div className="kpi-icon kpi-teal"><Icon name="camera" /></div>
-          </div>
-          <div className="kpi-card">
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4 }}>Tarif Jelas</div>
-              <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
-                Hitung estimasi ongkos kirim Reguler, Ekspres, dan Sameday secara instan.
+            <div className="kpi-card">
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4 }}>Tarif Jelas</div>
+                <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
+                  Hitung estimasi ongkos kirim Reguler, Ekspres, dan Sameday secara instan.
+                </div>
               </div>
+              <div className="kpi-icon kpi-amber"><Icon name="calculator" /></div>
             </div>
-            <div className="kpi-icon kpi-amber"><Icon name="calculator" /></div>
-          </div>
-          <div className="kpi-card">
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4 }}>Privasi Terjaga</div>
-              <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
-                Data pribadi pengirim dan penerima terlindungi pada pelacakan publik.
+            <div className="kpi-card">
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4 }}>Privasi Terjaga</div>
+                <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
+                  Data pribadi pengirim dan penerima terlindungi pada pelacakan publik.
+                </div>
               </div>
+              <div className="kpi-icon kpi-green"><Icon name="shield" /></div>
             </div>
-            <div className="kpi-icon kpi-green"><Icon name="shield" /></div>
           </div>
         </div>
       )}
@@ -256,6 +277,6 @@ export default function LacakPage() {
       {scannerOpen && (
         <BarcodeScanner onDetected={handleDetected} onClose={() => setScannerOpen(false)} />
       )}
-    </div>
+    </motion.div>
   );
 }

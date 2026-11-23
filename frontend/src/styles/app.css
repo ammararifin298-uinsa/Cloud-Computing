@@ -30,7 +30,9 @@
   --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+@layer base {
+  * { box-sizing: border-box; }
+}
 [hidden] { display: none !important; }
 
 html {

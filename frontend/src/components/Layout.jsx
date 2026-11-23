@@ -3,45 +3,15 @@ import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import { ROLE_LABEL, hasRole } from "../lib/api.js";
 import { Icon } from "./Icons.jsx";
+import { Navbar } from "@/components/shared/Navbar";
 import Toast from "./Toast.jsx";
 
 export function PublicLayout() {
-  const { isAuthenticated, degradedMessage, setDegradedMessage } = useAuth();
+  const { degradedMessage, setDegradedMessage } = useAuth();
 
   return (
     <div className="pub-shell">
-      <header className="pub-header">
-        <div className="pub-header-inner">
-          <Link to="/lacak" className="pub-brand">
-            <img src="/logo.svg" alt="Logo LacakIn" />
-            <span>LacakIn</span>
-          </Link>
-
-          <nav className="pub-nav" aria-label="Navigasi publik">
-            <NavLink to="/lacak">
-              <Icon name="search" size={15} />
-              Lacak Paket
-            </NavLink>
-            <NavLink to="/tarif">
-              <Icon name="calculator" size={15} />
-              Cek Tarif
-            </NavLink>
-            {isAuthenticated ? (
-              <NavLink to="/" className="btn-nav-primary">
-                <Icon name="dashboard" size={15} />
-                Panel Operasional
-              </NavLink>
-            ) : (
-              <>
-                <NavLink to="/register">Daftar Kurir</NavLink>
-                <NavLink to="/login" className="btn-nav-primary">
-                  Masuk Pegawai
-                </NavLink>
-              </>
-            )}
-          </nav>
-        </div>
-      </header>
+      <Navbar />
 
       <main className="pub-content">
         {degradedMessage && (

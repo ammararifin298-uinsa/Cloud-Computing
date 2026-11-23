@@ -352,7 +352,7 @@ services:
       autoheal: "true"
     volumes:
       - ./nginx/cdn.conf:/etc/nginx/nginx.conf:ro
-      - ./frontend/dist:/usr/share/nginx/html:ro
+      - ./frontend:/usr/share/nginx/frontend:ro
       - cdn_cache:/var/cache/nginx
     ports:
       - "8080:80"

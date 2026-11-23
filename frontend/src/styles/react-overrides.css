@@ -26,15 +26,17 @@
 
 body {
   display: block;
-  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: clip;
   background: var(--bg);
   color: var(--text);
   font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
 }
 
 #root {
-  min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
+  overflow-x: clip;
 }
 
 /* ---------- App Shell (Authenticated) ---------- */
@@ -749,4 +751,7 @@ body {
   .lacak-hero { padding: 26px 20px; }
   .auth-form-panel { padding: 24px 20px; }
   .grid-3 { grid-template-columns: 1fr; }
+  /* Mobile-First Touch & iOS Anti-Zoom Guarantees */
+  input, select, textarea, .form-control { font-size: 16px !important; min-height: 44px; }
+  .btn-primary, .btn-secondary { min-height: 44px; }
 }

@@ -20,6 +20,10 @@ venv/
 # Raw k6 loadtest time-series CSVs (keep summary JSON, HTML reports, and autoscale.csv)
 loadtest/results/*-raw.csv
 
+# Local AI skill caches (keep .antigravity/rules.md tracked)
+.agents/
+.codex/
+
 # Local cover assets & OS/editor files
 docs/logo_uinsa/
 .DS_Store

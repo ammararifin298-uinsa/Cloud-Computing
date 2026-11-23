@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { ResiBarcode } from "@/components/shared/ResiBarcode";
 import { useAuth } from "../context/AuthContext.jsx";
 import { apiFetch, formatRupiah, generateIdempotencyKey } from "../lib/api.js";
 
@@ -96,12 +97,24 @@ export default function KirimPage() {
 
       {created && (
         <div className="card-box" style={{ marginBottom: 18, background: "#f0fdf4", borderColor: "#86efac" }}>
-          <div className="mono" style={{ fontSize: 22, fontWeight: 800 }}>{created.shipment.code}</div>
-          <div style={{ fontSize: 13, margin: "4px 0 10px" }}>
-            {created.origin_city} → {created.dest_city} · {created.quote.service_name} · Total{" "}
-            <strong>{formatRupiah(created.shipment.total_cost)}</strong>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#15803d" }}>PESANAN BERHASIL DIBUAT</div>
+              <div className="mono" style={{ fontSize: 22, fontWeight: 800, color: "#14532d" }}>{created.shipment.code}</div>
+              <div style={{ fontSize: 13, margin: "4px 0 12px", color: "#166534" }}>
+                {created.origin_city} → {created.dest_city} · {created.quote.service_name} · Total{" "}
+                <strong>{formatRupiah(created.shipment.total_cost)}</strong>
+              </div>
+              <Link className="btn-primary" to={`/lacak?code=${encodeURIComponent(created.shipment.code)}`}>Lihat Pelacakan</Link>
+            </div>
+            <ResiBarcode
+              code={created.shipment.code}
+              originCity={created.origin_city}
+              destCity={created.dest_city}
+              serviceCode={created.shipment.service_code}
+              showPrint
+            />
           </div>
-          <Link className="btn-primary" to={`/lacak?code=${encodeURIComponent(created.shipment.code)}`}>Lihat Pelacakan</Link>
         </div>
       )}
 
