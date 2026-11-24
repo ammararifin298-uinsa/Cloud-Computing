@@ -32,11 +32,44 @@
 
 @layer base {
   * { box-sizing: border-box; }
+  button, input, select, textarea {
+    font: inherit;
+    color: inherit;
+    touch-action: manipulation;
+  }
+  a { color: inherit; }
 }
 [hidden] { display: none !important; }
 
+/* Hide scrollbars cleanly while keeping wheel/touch scrolling active */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Sleek, unobtrusive global scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.55);
+}
+
 html {
   -webkit-text-size-adjust: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
 }
 
 body {
@@ -49,13 +82,6 @@ body {
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
-
-button, input, select, textarea {
-  font: inherit;
-  color: inherit;
-  touch-action: manipulation;
-}
-a { color: inherit; }
 
 /* ---------- Mobile Navigation Components (Hidden on Desktop & Laptop) ---------- */
 

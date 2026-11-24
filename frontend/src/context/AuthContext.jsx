@@ -47,7 +47,7 @@ export function AuthProvider({ children }) {
     if (!getStoredToken()) return null;
     try {
       const me = await apiFetch("/api/auth/me");
-      saveSession(null, me);
+      saveSession(null, me, undefined);
       setUser({
         id: me.id,
         role: me.role,
@@ -61,8 +61,8 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const login = useCallback((accessToken, userData) => {
-    saveSession(accessToken, userData);
+  const login = useCallback((accessToken, userData, remember = true) => {
+    saveSession(accessToken, userData, remember);
     setToken(accessToken);
     setUser({
       id: userData.id,

@@ -67,11 +67,12 @@ test("TariffCalculator: computes actual vs volumetric weight and insurance accur
   assert.throws(() => calc.quote(rule, { weight_kg: 60 }), /melebihi batas maksimal/);
 });
 
-test("ResiGenerator: formats deterministic LOG-YYMMDD-NNNNNC with valid Luhn check digit", () => {
+test("ResiGenerator: formats deterministic LCK-{SVC}-YYMMDD-NNNNNC with valid Luhn check digit", () => {
   const d = new Date("2026-11-23T00:00:00Z");
-  const code = ResiGenerator.formatResi(d, 42);
-  assert.match(code, /^LOG-261123-00042\d$/);
+  const code = ResiGenerator.formatResi(d, 42, "EXP");
+  assert.match(code, /^LCK-EXP-261123-00042\d$/);
   assert.equal(ResiGenerator.verifyLuhn(code), true);
+  assert.equal(ResiGenerator.verifyLuhn("LOG-261123-000422"), true);
   // Corrupt last digit -> Luhn fails
   const bad = code.slice(0, -1) + ((Number(code.slice(-1)) + 1) % 10);
   assert.equal(ResiGenerator.verifyLuhn(bad), false);

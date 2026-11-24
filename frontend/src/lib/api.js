@@ -11,12 +11,12 @@ export function registerApiHandlers({ onUnauthorized, onDegraded }) {
 }
 
 export function getStoredToken() {
-  return localStorage.getItem(TOKEN_KEY) || "";
+  return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || "";
 }
 
 export function getStoredUser() {
   try {
-    const raw = localStorage.getItem(USER_KEY);
+    const raw = localStorage.getItem(USER_KEY) || sessionStorage.getItem(USER_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -24,11 +24,19 @@ export function getStoredUser() {
 }
 
 /**
- * Security hardening: persist ONLY minimal UI-display fields in localStorage.
+ * Security hardening: persist ONLY minimal UI-display fields in storage.
  * Never store NIK, phone, email, or sensitive tokens beyond the bearer JWT.
  */
-export function saveSession(token, user) {
-  if (token) localStorage.setItem(TOKEN_KEY, token);
+export function saveSession(token, user, remember = true) {
+  const useLocal = remember === undefined ? Boolean(localStorage.getItem(TOKEN_KEY)) : Boolean(remember);
+  const target = useLocal ? localStorage : sessionStorage;
+  const other = useLocal ? sessionStorage : localStorage;
+
+  if (token) {
+    other.removeItem(TOKEN_KEY);
+    other.removeItem(USER_KEY);
+    target.setItem(TOKEN_KEY, token);
+  }
   if (user) {
     const minimal = {
       id: user.id,
@@ -37,13 +45,15 @@ export function saveSession(token, user) {
       employee_code: user.employee_code,
       avatar_url: user.avatar_url || null,
     };
-    localStorage.setItem(USER_KEY, JSON.stringify(minimal));
+    target.setItem(USER_KEY, JSON.stringify(minimal));
   }
 }
 
 export function clearSession() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(USER_KEY);
 }
 
 export function generateIdempotencyKey() {

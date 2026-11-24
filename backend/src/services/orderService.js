@@ -42,6 +42,54 @@ export class OrderService {
     return data;
   }
 
+  static async getDistricts(cityId) {
+    return withReadClient(async (client) => {
+      const res = await client.query(
+        `SELECT id, city_id, code, name
+         FROM districts
+         WHERE city_id = $1
+         ORDER BY name ASC`,
+        [cityId]
+      );
+      return res.rows;
+    });
+  }
+
+  static async getVillages(districtId) {
+    return withReadClient(async (client) => {
+      const res = await client.query(
+        `SELECT id, district_id, code, name, type, postal_code
+         FROM villages
+         WHERE district_id = $1
+         ORDER BY name ASC`,
+        [districtId]
+      );
+      return res.rows;
+    });
+  }
+
+  static async getVehicleModels(vehicleType = null) {
+    return withReadClient(async (client) => {
+      if (vehicleType) {
+        const res = await client.query(
+          `SELECT id, vehicle_type, brand, model, min_year
+           FROM vehicle_models
+           WHERE is_active = TRUE AND vehicle_type = $1
+           ORDER BY brand ASC, model ASC`,
+          [vehicleType]
+        );
+        return res.rows;
+      }
+      const res = await client.query(
+        `SELECT id, vehicle_type, brand, model, min_year
+         FROM vehicle_models
+         WHERE is_active = TRUE
+         ORDER BY vehicle_type ASC, brand ASC, model ASC`
+      );
+      return res.rows;
+    });
+  }
+
   static async quoteTariff(input) {
     const rows = await withReadClient(async (client) => {
       const params = [input.origin_city_id, input.dest_city_id];
@@ -123,28 +171,33 @@ export class OrderService {
          RETURNING last_seq`,
         ["GLOBAL", dateStr]
       );
-      const resiCode = ResiGenerator.formatResi(today, cntRes.rows[0].last_seq);
+      const resiCode = ResiGenerator.formatResi(today, cntRes.rows[0].last_seq, quote.service_code);
       const initialStatus = input.channel === "ONLINE" ? "BOOKED" : "DITERIMA";
       const initialLocation = hub.name;
+      const packageType = input.package_type || "Umum";
 
       // 3. Insert shipment + initial tracking_event + audit log in 1 transaction
       const shipRes = await client.query(
         `INSERT INTO shipments (
            code, current_status, current_location, updated_at,
            sender_name, sender_phone, sender_address, origin_city_id, origin_hub_id,
+           origin_district_id, origin_village_id, origin_rt, origin_rw, origin_postal_code,
            receiver_name, receiver_phone, receiver_address, dest_city_id, dest_hub_id,
-           service_code, weight_kg, length_cm, width_cm, height_cm, chargeable_weight_kg,
+           dest_district_id, dest_village_id, dest_rt, dest_rw, dest_postal_code,
+           service_code, package_type, weight_kg, length_cm, width_cm, height_cm, chargeable_weight_kg,
            declared_value, shipping_cost, insurance_cost, total_cost,
            payment_status, channel, created_by, version
          ) VALUES (
            $1, $2, $3, clock_timestamp(),
            $4, $5, $6, $7, $8,
            $9, $10, $11, $12, $13,
-           $14, $15, $16, $17, $18, $19,
-           $20, $21, $22, $23,
-           $24, $25, $26, 1
+           $14, $15, $16, $17, $18,
+           $19, $20, $21, $22, $23,
+           $24, $25, $26, $27, $28, $29, $30,
+           $31, $32, $33, $34,
+           $35, $36, $37, 1
          )
-         RETURNING code, current_status, current_location, service_code,
+         RETURNING code, current_status, current_location, service_code, package_type,
                    chargeable_weight_kg, shipping_cost, insurance_cost, total_cost,
                    payment_status, channel, version, updated_at`,
         [
@@ -156,12 +209,23 @@ export class OrderService {
           input.sender_address.trim(),
           input.origin_city_id,
           hub.id,
+          input.origin_district_id ?? null,
+          input.origin_village_id ?? null,
+          input.origin_rt?.trim() || null,
+          input.origin_rw?.trim() || null,
+          input.origin_postal_code?.trim() || null,
           input.receiver_name.trim(),
           input.receiver_phone.trim(),
           input.receiver_address.trim(),
           input.dest_city_id,
           rule.dest_hub_id ?? null,
+          input.dest_district_id ?? null,
+          input.dest_village_id ?? null,
+          input.dest_rt?.trim() || null,
+          input.dest_rw?.trim() || null,
+          input.dest_postal_code?.trim() || null,
           quote.service_code,
+          packageType,
           quote.actual_weight_kg,
           input.length_cm || 0,
           input.width_cm || 0,

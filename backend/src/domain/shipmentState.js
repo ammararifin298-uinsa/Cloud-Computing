@@ -19,7 +19,7 @@ export const TERMINAL_STATUSES = new Set([
 ]);
 
 const TRANSITION_RULES = new Map([
-  ["BOOKED->DITERIMA", { roles: new Set(["operator", "admin", "superadmin"]), requiresProof: false }],
+  ["BOOKED->DITERIMA", { roles: new Set(["kurir", "operator", "admin", "superadmin"]), requiresProof: false }],
   ["BOOKED->BATAL", { roles: new Set(["operator", "admin", "superadmin"]), requiresProof: false }],
   ["DITERIMA->DISIMPAN", { roles: new Set(["operator", "admin", "superadmin"]), requiresProof: false }],
   ["DITERIMA->DALAM_PERJALANAN", { roles: new Set(["operator", "kurir", "admin", "superadmin"]), requiresProof: false }],

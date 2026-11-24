@@ -78,9 +78,9 @@ flowchart TB
 
 ## 3. Tech Stack
 
-- **Backend (`backend/`):** Node.js 22 (ESM), Express.js, `pg` (PgBouncer-safe R/W split), Zod, Helmet, `@aws-sdk/client-s3` (MinIO), Clean Architecture OOP (State Machine, Strategy Pattern Tariff Calculator, Luhn Check-Digit Resi Generator, Observer Audit Bus, Idempotency Key).
-- **Frontend (`frontend/`):** React 19, TypeScript, Vite 6, Tailwind CSS v4, Shadcn UI (`button`, `input`, `card`, `label`, `sheet`, `sonner`), React Icons, Motion (`motion/react`), Zod, React Hook Form, Axios, Zustand, Swiper.js, Auto-Scan Barcode (`BarcodeDetector` + `@zxing/browser`), dan Auto-Generate Barcode Code128 (`jsbarcode`) + Cetak Label.
-- **Database (`db/`):** PostgreSQL 16 dengan skema wilayah Jawa Timur (`01-init.sql` s.d. `04-bdl-upgrade.sql` + `seed.sql` terpisah).
+- **Backend (`backend/`):** Node.js 22 (ESM), Express.js, `pg` (PgBouncer-safe R/W split), Zod, Helmet, `@aws-sdk/client-s3` (MinIO), Clean Architecture OOP (State Machine, Strategy Pattern Tariff Calculator, Luhn Check-Digit Resi Generator `LCK-{LAYANAN}-YYMMDD-NNNNNC`, Observer Audit Bus, Idempotency Key).
+- **Frontend (`frontend/`):** React 19, TypeScript, Vite 6, Tailwind CSS v4, Shadcn UI (`button`, `input`, `card`, `label`, `sheet`, `sonner`), React Icons, Motion (`motion/react`), Auto-Scan Barcode (`BarcodeDetector` + `@zxing/browser`), Auto-Generate Barcode Code128 (`jsbarcode`) + Cetak Resi Thermal Lengkap, Unduh Kartu Pegawai (PNG), Laporan Rekapitulasi per Role (`/laporan`), serta Ekspor CSV & Cetak PDF A4.
+- **Database (`db/`):** PostgreSQL 16 dengan skema wilayah Jawa Timur lengkap (`01-init.sql` s.d. `14-fill-all-missing-fields.sql` + `seed.sql`), mencakup 38 Kabupaten/Kota, 32 Hub, 81 paket rentang 7 hari, serta 23 akun pegawai dan kurir motor/mobil.
 
 ---
 
@@ -90,15 +90,16 @@ flowchart TB
 logistik-dr/
 ├── backend/              # 3 Microservices Express.js + Unit Tests (node --test)
 ├── frontend/             # Aplikasi SPA React + TypeScript + Tailwind v4 + Shadcn UI
-├── db/                   # 01-init.sql, 02-init-primary.sh, 03-wilayah-jatim.sql, 04-bdl-upgrade.sql, seed.sql
-├── nginx/                # nginx.conf (2 Load Balancers + Rate Limit) & cdn.conf (Edge proxy_cache)
+├── db/                   # Migrasi & seed PostgreSQL 16 (01-init.sql s.d. 14-fill-all-missing-fields.sql)
+├── nginx/                # nginx.conf (2 Load Balancers + Rate Limit + server_tokens off) & cdn.conf (Edge proxy_cache)
 ├── pgbouncer/            # Konfigurasi PgBouncer RW & RO (Transaction Pooling)
 ├── haproxy/              # haproxy.cfg (L4 Read Balancer 1..30 db-replica)
 ├── minio/                # Dockerfile MinIO Object Storage (khusus media)
 ├── backup/               # backup.sh, restore.sh, & dr-test.ps1 (Skenario Kelompok 6)
 ├── loadtest/             # autoscaler.ps1 (App 2..10 & DB 2..20), stress.js, auth-stress.js, cdn-stress.js
-├── docs/                 # Laporan Pertemuan 1–5 & Diagram Arsitektur
+├── docs/                 # Laporan Final, Laporan P1–P5, Audit, & Diagram Arsitektur
 ├── pdf-docs/             # Versi PDF Laporan P1–P5 & DRP Kelompok 6
+├── SECURITY.md           # Kebijakan Keamanan & Threat Model (STRIDE)
 ├── docker-compose.yml    # Orkestrasi penuh 18+ container HA & DR
 └── run.ps1               # Menu kontrol interaktif PowerShell
 ```

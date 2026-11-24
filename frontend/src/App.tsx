@@ -6,12 +6,19 @@ import { Toaster } from "@/components/ui/sonner";
 import { useAuth } from "./context/AuthContext.jsx";
 import { hasRole } from "./lib/api.js";
 import BackupPage from "./pages/BackupPage.jsx";
+import BantuanPage from "./pages/BantuanPage.jsx";
+import BerandaPage from "./pages/BerandaPage.jsx";
 import CheckpointPage from "./pages/CheckpointPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import KirimPage from "./pages/KirimPage.jsx";
 import LacakPage from "./pages/LacakPage.jsx";
+import LaporanPage from "./pages/LaporanPage.jsx";
+import LayananPage from "./pages/LayananPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
+import NotifikasiPage from "./pages/NotifikasiPage.jsx";
 import PegawaiPage from "./pages/PegawaiPage.jsx";
+import PengajuanKurirPage from "./pages/PengajuanKurirPage.jsx";
+import PengaturanPage from "./pages/PengaturanPage.jsx";
 import PengirimanPage from "./pages/PengirimanPage.jsx";
 import ProfilPage from "./pages/ProfilPage.jsx";
 import RegisterPage from "./pages/RegisterPage.jsx";
@@ -38,10 +45,13 @@ export default function App() {
     <MotionConfig reducedMotion="user">
       <Routes>
         <Route element={<Shell />}>
+          <Route path="/beranda" element={<BerandaPage />} />
           <Route path="/lacak" element={<LacakPage />} />
           <Route path="/tarif" element={<TarifPage />} />
+          <Route path="/layanan" element={<LayananPage />} />
+          <Route path="/bantuan" element={<BantuanPage />} />
           <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/register" element={isAuthenticated ? <Navigate to="/" replace /> : <RegisterPage />} />
           <Route
             path="/"
             element={
@@ -50,18 +60,11 @@ export default function App() {
                   <DashboardPage />
                 </Guard>
               ) : (
-                <Navigate to="/lacak" replace />
+                <BerandaPage />
               )
             }
           />
-          <Route
-            path="/kirim"
-            element={
-              <Guard roles={STAFF}>
-                <KirimPage />
-              </Guard>
-            }
-          />
+          <Route path="/kirim" element={<KirimPage />} />
           <Route
             path="/checkpoint"
             element={
@@ -79,6 +82,14 @@ export default function App() {
             }
           />
           <Route
+            path="/laporan"
+            element={
+              <Guard roles={ALL}>
+                <LaporanPage />
+              </Guard>
+            }
+          />
+          <Route
             path="/pegawai"
             element={
               <Guard roles={["superadmin", "admin"]}>
@@ -87,9 +98,17 @@ export default function App() {
             }
           />
           <Route
+            path="/pengajuan-kurir"
+            element={
+              <Guard roles={["superadmin", "admin", "supervisor"]}>
+                <PengajuanKurirPage />
+              </Guard>
+            }
+          />
+          <Route
             path="/backup"
             element={
-              <Guard roles={["superadmin", "admin"]}>
+              <Guard roles={["superadmin"]}>
                 <BackupPage />
               </Guard>
             }
@@ -99,6 +118,22 @@ export default function App() {
             element={
               <Guard roles={ALL}>
                 <ProfilPage />
+              </Guard>
+            }
+          />
+          <Route
+            path="/notifikasi"
+            element={
+              <Guard roles={ALL}>
+                <NotifikasiPage />
+              </Guard>
+            }
+          />
+          <Route
+            path="/pengaturan"
+            element={
+              <Guard roles={ALL}>
+                <PengaturanPage />
               </Guard>
             }
           />
